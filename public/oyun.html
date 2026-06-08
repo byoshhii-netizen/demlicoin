@@ -4,95 +4,116 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DemliCoin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/style.css" />
   <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
+  <!-- Sonuç overlay -->
+  <div id="sonuc-overlay" class="sonuc-overlay" style="display:none;">
+    <div class="sonuc-ic">
+      <div id="sonuc-rakam" class="sonuc-rakam">+0</div>
+      <div class="sonuc-alt">JETON</div>
+    </div>
+  </div>
+
   <div id="uygulama">
+    <!-- ÜST BAR -->
     <header class="ust-bar">
       <div class="logo-alan">
-        <div class="logo-icon">DC</div>
-        <span class="logo-yazi">DemliCoin</span>
+        <div class="logo-mark">DC</div>
+        <span class="logo-text">DemliCoin</span>
       </div>
-      <div class="kullanici-bilgi">
-        <span class="nick-goster" id="hosgeldin-nick"></span>
-        <div class="jeton-goster">
+      <div class="kullanici-bilgi" id="kullanici-bilgi-alan">
+        <span class="nick-pill" id="hosgeldin-nick"></span>
+        <div class="jeton-pill">
           <span class="jeton-label">JETON</span>
-          <span id="jeton-miktar">0</span>
+          <span class="jeton-sayi" id="jeton-miktar">0</span>
         </div>
-        <div class="nav-ayrac"></div>
-        <a href="/market" class="btn btn-kucuk">Market</a>
-        <a href="/liderlik" class="btn btn-kucuk">Liderlik</a>
-        <button onclick="cikisYap()" class="btn btn-tehlike btn-kucuk">Cikis</button>
+        <div class="nav-sep"></div>
+        <a href="/market" class="nav-link">Market</a>
+        <a href="/liderlik" class="nav-link">Liderlik</a>
+        <button onclick="cikisYap()" class="btn-ghost-kirmizi">Cikis</button>
+      </div>
+      <div id="misafir-alan" style="display:none;">
+        <a href="/giris" class="btn-outline">Giris Yap</a>
+        <a href="/kayit" class="btn-altin">Kayit Ol</a>
       </div>
     </header>
 
     <div class="ana-icerik">
-      <!-- SOL PANEL -->
+      <!-- SOL: Oyuncular -->
       <aside class="sol-panel">
         <div class="panel-baslik">
-          <span>Cevrimici</span>
-          <span id="oyuncu-sayisi" class="badge">0</span>
+          <span>CEVRIMICI</span>
+          <span class="badge-sayac" id="oyuncu-sayisi">0</span>
         </div>
         <div id="oyuncu-listesi" class="oyuncu-listesi"></div>
       </aside>
 
-      <!-- ORTA -->
+      <!-- ORTA: Grafik + Oyun -->
       <main class="orta-alan">
 
-        <!-- Grafik -->
+        <!-- Grafik kartı -->
         <div class="grafik-kart">
-          <div class="grafik-ust">
-            <span class="grafik-baslik">DEMLICOIN / CANLI GRAFIK</span>
-            <span id="grafik-deger" class="canli-deger mono">—</span>
+          <div class="grafik-header">
+            <div class="grafik-sol">
+              <span class="grafik-sembol">DC / JETON</span>
+              <span class="grafik-canli-dot"></span>
+              <span class="grafik-canli-text">CANLI</span>
+            </div>
+            <span id="grafik-deger" class="canli-deger mono deger-yesil">—</span>
           </div>
           <canvas id="grafik-canvas"></canvas>
         </div>
 
-        <!-- Bahis -->
-        <div class="bahis-panel" id="bahis-panel">
-          <div class="bahis-baslik">Pozisyon Ac</div>
-          <div class="bahis-icerik">
-            <div class="input-grup">
-              <label>Jeton Miktari</label>
-              <input type="number" id="bahis-miktar" placeholder="100" min="1" value="100" />
-            </div>
-            <div class="bahis-butonlar">
-              <button class="btn-yukari" onclick="bahistePara('yukari')">AL / YUKSELIS</button>
-              <button class="btn-asagi" onclick="bahistePara('asagi')">SAT / DUSUS</button>
-            </div>
+        <!-- Bahis paneli -->
+        <div class="bahis-kart" id="bahis-panel" style="display:none;">
+          <div class="bahis-header">
+            <span class="bahis-baslik">POZİSYON AC</span>
+            <div id="geri-sayim" class="geri-sayim-rakam" style="display:none;">5</div>
           </div>
-
-          <div id="aktif-bahis" class="aktif-bahis" style="display:none;">
-            <div class="aktif-bilgi">
-              <div class="aktif-bilgi-satir">
-                <span>Pozisyon:</span>
-                <strong id="aktif-miktar"></strong>
-                <span>jeton</span>
+          <div class="bahis-ic">
+            <div class="miktar-grup">
+              <label class="miktar-label">JETON MIKTARI</label>
+              <div class="miktar-input-wrap">
+                <input type="number" id="bahis-miktar" value="100" min="1" class="miktar-input" />
+                <div class="hizli-miktarlar">
+                  <button onclick="hizliMiktar(50)">50</button>
+                  <button onclick="hizliMiktar(100)">100</button>
+                  <button onclick="hizliMiktar(250)">250</button>
+                  <button onclick="hizliMiktar(500)">500</button>
+                </div>
               </div>
-              <div class="aktif-bilgi-satir">
-                <span>Giris:</span>
-                <strong id="aktif-giris-deger"></strong>
-              </div>
-              <div id="anlik-kazan-goster" class="anlik-kazanc">+0</div>
             </div>
-            <button class="btn-sat" onclick="satisYap()">POZISYONU KAPAT</button>
+            <button id="bas-btn" class="bas-btn" onclick="basBahistePara()">BAS</button>
           </div>
         </div>
 
-        <!-- Item Bar -->
+        <!-- Giriş uyarısı (misafir) -->
+        <div id="giris-uyari" class="giris-uyari-kart">
+          <p>Oynamak icin hesap acmalisiniz</p>
+          <div class="giris-uyari-butonlar">
+            <a href="/kayit" class="btn-altin">Kayit Ol — 500 Jeton Bedava</a>
+            <a href="/giris" class="btn-outline">Giris Yap</a>
+          </div>
+        </div>
+
+        <!-- Item bar -->
         <div id="item-bar" class="item-bar"></div>
 
-        <!-- Sonuc -->
-        <div id="sonuc-bildirim" class="sonuc-bildirim" style="display:none;"></div>
+        <!-- Bildirim -->
+        <div id="bildirim-bar" class="bildirim-bar" style="display:none;"></div>
 
         <!-- Chat -->
         <div class="chat-kart">
-          <div class="chat-baslik">Canli Chat</div>
+          <div class="chat-header">CANLI CHAT</div>
           <div id="chat-mesajlar" class="chat-mesajlar"></div>
-          <div class="chat-gonder">
-            <input type="text" id="chat-input" placeholder="Mesaj yaz..." maxlength="200" />
-            <button onclick="mesajGonder()" class="btn-gonder">Gonder</button>
+          <div class="chat-form">
+            <input id="chat-input" class="chat-input" type="text" placeholder="Mesaj yaz..." maxlength="200" />
+            <button onclick="mesajGonder()" class="chat-gonder-btn">GONDER</button>
           </div>
         </div>
 

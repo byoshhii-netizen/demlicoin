@@ -4,47 +4,36 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DemliCoin — Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body class="auth-sayfa">
   <div class="auth-kart">
     <div class="auth-logo">
-      <div class="logo-icon-buyuk">ADM</div>
+      <div class="auth-logo-mark" style="font-size:13px;">ADM</div>
       <h1>Admin Paneli</h1>
       <p>DemliCoin Yonetim Sistemi</p>
     </div>
-    <form id="admin-form">
-      <div class="form-grup">
-        <label>Admin Sifresi</label>
-        <input type="password" id="admin-sifre" placeholder="••••••••••••" required />
+    <form id="form">
+      <div class="auth-form-grup">
+        <label class="auth-label">Admin Sifresi</label>
+        <input class="auth-input" id="sifre" type="password" placeholder="••••••••••••" required />
       </div>
-      <div id="admin-hata" class="hata-mesaj" style="display:none;"></div>
-      <button type="submit" class="btn btn-ana btn-tam" style="height:44px;font-size:14px;">Giris Yap</button>
+      <div id="hata" class="auth-hata" style="display:none;"></div>
+      <button type="submit" class="auth-submit">GIRIS YAP</button>
     </form>
-    <div class="auth-alt">
-      <a href="/">Oyuna Don</a>
-    </div>
+    <div class="auth-alt"><a href="/">Oyuna Don</a></div>
   </div>
-
   <script>
-    document.getElementById('admin-form').addEventListener('submit', async (e) => {
+    document.getElementById('form').addEventListener('submit', async e => {
       e.preventDefault();
-      const sifre = document.getElementById('admin-sifre').value;
-      const hata = document.getElementById('admin-hata');
-      hata.style.display = 'none';
-
-      const r = await fetch('/api/admin/giris', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sifre })
-      });
+      const h = document.getElementById('hata'); h.style.display='none';
+      const r = await fetch('/api/admin/giris', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sifre: document.getElementById('sifre').value }) });
       const d = await r.json();
-      if (d.basari) {
-        window.location.href = '/yonetbunlari';
-      } else {
-        hata.textContent = d.mesaj;
-        hata.style.display = 'block';
-      }
+      if (d.basari) window.location.href = '/yonetbunlari';
+      else { h.textContent = d.mesaj; h.style.display = 'block'; }
     });
   </script>
 </body>

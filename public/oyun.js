@@ -1,329 +1,376 @@
-// DemliCoin - Oyun JS
+// DemliCoin Oyun JS
 const socket = io();
 let kullanici = null;
 let grafikGecmis = [];
 let aktifBahis = null;
 let canvas, ctx;
-let animFrame = null;
+let geriSayimTimer = null;
+let geriSayimSaniye = 5;
 
-// ─────────────────── BAŞLAT ───────────────────
+// ─── INIT ───
 async function init() {
   const r = await fetch('/api/benim-bilgilerim');
-  if (r.status === 401 || r.status === 302) { window.location.href = '/giris'; return; }
-  if (!r.ok) { window.location.href = '/giris'; return; }
-  const d = await r.json();
-  if (!d.basari) { window.location.href = '/giris'; return; }
-  kullanici = d.kullanici;
+  if (!r.ok) { /* misafir modu - devam et */ }
+  else {
+    const d = await r.json();
+    if (d.basari) {
+      kullanici = d.kullanici;
+      guncelleBilgi();
+      itemBarGuncelle(d.itemler);
+      document.getElementById('giris-uyari').style.display = 'none';
+      document.getElementById('bahis-panel').style.display = 'block';
+    }
+  }
 
-  document.getElementById('hosgeldin-nick').textContent = kullanici.nick;
-  document.getElementById('jeton-miktar').textContent = kullanici.jeton.toLocaleString('tr-TR');
-
-  // Socket auth
-  socket.emit('auth', { kullanici_id: kullanici.id });
-
-  // Grafik canvas ayarla
   canvas = document.getElementById('grafik-canvas');
   ctx = canvas.getContext('2d');
   boyutlandirCanvas();
   window.addEventListener('resize', boyutlandirCanvas);
 
-  // Mevcut grafik durumunu çek
+  // Grafik durumu
   const gr = await fetch('/api/grafik-durumu');
   const gd = await gr.json();
   grafikGecmis = gd.gecmis || [];
-  mevcutDegerGoster(gd.mevcutDeger);
+  mevcutDegerGuncelle(gd.mevcutDeger);
   grafikCiz();
 
-  // Chat geçmişini yükle
-  const cr = await fetch('/api/chat/gecmis');
-  const cd = await cr.json();
-  cd.mesajlar.forEach(m => chatEkle(m.nick, m.mesaj, m.tarih));
-  chatKaydirAsagi();
+  // Chat gecmisi (giris gerektiriyor)
+  if (kullanici) {
+    const cr = await fetch('/api/chat/gecmis');
+    const cd = await cr.json();
+    if (cd.basari) {
+      cd.mesajlar.forEach(m => chatEkle(m.nick, m.mesaj, m.tarih, m.jeton, m.renk, m.sira));
+      chatKaydirAsagi();
+    }
+  }
 
-  // İtem bar
-  itemBarGuncelle(d.itemler);
+  document.getElementById('chat-input').addEventListener('keydown', e => { if (e.key === 'Enter') mesajGonder(); });
+}
 
-  // Enter tuşu chat
-  document.getElementById('chat-input').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') mesajGonder();
-  });
+function guncelleBilgi() {
+  if (!kullanici) return;
+  document.getElementById('hosgeldin-nick').textContent = kullanici.nick;
+  document.getElementById('jeton-miktar').textContent = kullanici.jeton.toLocaleString('tr-TR');
 }
 
 function boyutlandirCanvas() {
   if (!canvas) return;
   const parent = canvas.parentElement;
-  canvas.width = parent.clientWidth - 32;
-  canvas.height = 240;
+  canvas.width = parent.clientWidth;
+  canvas.height = 260;
   grafikCiz();
 }
 
-// ─────────────────── SOCKEt OLAYLAR ───────────────────
+// ─── SOCKET ───
 socket.on('grafik_guncelle', (data) => {
   grafikGecmis = data.gecmis || [];
-  mevcutDegerGoster(data.deger);
+  mevcutDegerGuncelle(data.deger);
   grafikCiz();
-  if (aktifBahis) anlikKazancGoster(data.deger);
 });
 
-socket.on('oyuncu_listesi', (oyuncular) => {
-  oyuncuListesiGoster(oyuncular);
-});
+socket.on('oyuncu_listesi', (oyuncular) => oyuncuListesiGoster(oyuncular));
 
 socket.on('chat_mesaj', (data) => {
-  chatEkle(data.nick, data.mesaj, data.tarih);
+  chatEkle(data.nick, data.mesaj, data.tarih, data.jeton, data.renk, data.sira);
   chatKaydirAsagi();
 });
 
 socket.on('jeton_guncelle', (data) => {
-  if (data.kullanici_id === kullanici.id) {
+  if (kullanici && data.kullanici_id === kullanici.id) {
     kullanici.jeton = data.jeton;
     document.getElementById('jeton-miktar').textContent = data.jeton.toLocaleString('tr-TR');
   }
 });
 
-socket.on('yasaklandi', () => {
-  alert('Hesabınız yasaklanmıştır.');
-  window.location.href = '/giris';
-});
+socket.on('yasaklandi', () => { alert('Hesabiniz yasaklanmistir.'); window.location.href = '/giris'; });
 
-// ─────────────────── GRAFİK ÇİZ ───────────────────
+function hizliMiktar(m) {
+  const el = document.getElementById('bahis-miktar');
+  if (el) el.value = m;
+}
+
+// ─── GRAFİK ───
 function grafikCiz() {
-  if (!canvas || !ctx) return;
-  const w = canvas.width;
-  const h = canvas.height;
+  if (!canvas || !ctx || grafikGecmis.length < 2) return;
+  const w = canvas.width, h = canvas.height;
   ctx.clearRect(0, 0, w, h);
 
-  if (grafikGecmis.length < 2) {
-    ctx.fillStyle = '#4ade80';
-    ctx.font = '16px sans-serif';
-    ctx.fillText('Grafik yükleniyor...', w / 2 - 70, h / 2);
-    return;
-  }
-
   const degerler = grafikGecmis.map(g => g.deger);
-  const minD = Math.min(...degerler) * 0.95;
-  const maxD = Math.max(...degerler) * 1.05;
+  const minD = Math.min(...degerler) * 0.93;
+  const maxD = Math.max(...degerler) * 1.07;
   const aralik = maxD - minD || 1;
+  const padL = 52, padR = 12, padT = 16, padB = 28;
+  const gW = w - padL - padR;
+  const gH = h - padT - padB;
 
-  const padL = 55, padR = 15, padT = 20, padB = 30;
-  const grafW = w - padL - padR;
-  const grafH = h - padT - padB;
-
-  // Arka plan grid
-  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  // Grid çizgileri
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
   ctx.lineWidth = 1;
-  for (let i = 0; i <= 5; i++) {
-    const y = padT + (grafH / 5) * i;
-    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + grafW, y); ctx.stroke();
-    const deger = maxD - (aralik / 5) * i;
-    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    ctx.font = '11px monospace';
-    ctx.fillText(deger.toFixed(0), 2, y + 4);
+  for (let i = 0; i <= 4; i++) {
+    const y = padT + (gH / 4) * i;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + gW, y); ctx.stroke();
+    const val = maxD - (aralik / 4) * i;
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.font = '500 10px Inter, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(val.toFixed(1), padL - 6, y + 4);
   }
 
-  // Gradient alan
-  const grad = ctx.createLinearGradient(0, padT, 0, padT + grafH);
-  const sonDeger = degerler[degerler.length - 1];
-  const ilkDeger = degerler[0];
-  const renk = sonDeger >= ilkDeger ? '74, 222, 128' : '248, 113, 113';
-  grad.addColorStop(0, `rgba(${renk}, 0.3)`);
-  grad.addColorStop(1, `rgba(${renk}, 0.0)`);
+  // Renk: son deger ilke gore
+  const ilk = degerler[0], son = degerler[degerler.length - 1];
+  const yukariMi = son >= ilk;
+  const renkR = yukariMi ? '16,185,129' : '239,68,68';
+
+  // Dolgu alanı
+  const grad = ctx.createLinearGradient(0, padT, 0, padT + gH);
+  grad.addColorStop(0, `rgba(${renkR},0.25)`);
+  grad.addColorStop(0.6, `rgba(${renkR},0.05)`);
+  grad.addColorStop(1, `rgba(${renkR},0)`);
 
   ctx.beginPath();
   grafikGecmis.forEach((p, i) => {
-    const x = padL + (i / (grafikGecmis.length - 1)) * grafW;
-    const y = padT + grafH - ((p.deger - minD) / aralik) * grafH;
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    const x = padL + (i / (grafikGecmis.length - 1)) * gW;
+    const y = padT + gH - ((p.deger - minD) / aralik) * gH;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   });
-  ctx.lineTo(padL + grafW, padT + grafH);
-  ctx.lineTo(padL, padT + grafH);
+  ctx.lineTo(padL + gW, padT + gH);
+  ctx.lineTo(padL, padT + gH);
   ctx.closePath();
   ctx.fillStyle = grad;
   ctx.fill();
 
   // Ana çizgi
   ctx.beginPath();
-  ctx.strokeStyle = `rgb(${renk})`;
-  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = `rgb(${renkR})`;
+  ctx.lineWidth = 2;
   ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
   grafikGecmis.forEach((p, i) => {
-    const x = padL + (i / (grafikGecmis.length - 1)) * grafW;
-    const y = padT + grafH - ((p.deger - minD) / aralik) * grafH;
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    const x = padL + (i / (grafikGecmis.length - 1)) * gW;
+    const y = padT + gH - ((p.deger - minD) / aralik) * gH;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   });
   ctx.stroke();
 
-  // Son nokta
-  const lastX = padL + grafW;
-  const lastY = padT + grafH - ((sonDeger - minD) / aralik) * grafH;
+  // Son nokta (canlı ışıltı)
+  const lastX = padL + gW;
+  const lastY = padT + gH - ((son - minD) / aralik) * gH;
   ctx.beginPath();
-  ctx.arc(lastX, lastY, 5, 0, Math.PI * 2);
-  ctx.fillStyle = `rgb(${renk})`;
+  ctx.arc(lastX, lastY, 4, 0, Math.PI * 2);
+  ctx.fillStyle = `rgb(${renkR})`;
   ctx.fill();
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+  ctx.lineWidth = 1.5;
   ctx.stroke();
+
+  // Zaman etiketi
+  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  ctx.font = '10px Inter, sans-serif';
+  ctx.textAlign = 'left';
+  const zaman = new Date();
+  ctx.fillText(zaman.toLocaleTimeString('tr-TR'), padL, h - 8);
 }
 
-function mevcutDegerGoster(deger) {
+function mevcutDegerGuncelle(deger) {
   const el = document.getElementById('grafik-deger');
-  const eskiDeger = parseFloat(el.getAttribute('data-deger') || deger);
-  el.setAttribute('data-deger', deger);
+  const eski = parseFloat(el.dataset.deger || deger);
+  el.dataset.deger = deger;
   el.textContent = deger.toFixed(2);
-  el.style.color = deger >= eskiDeger ? '#4ade80' : '#f87171';
+  el.className = 'canli-deger mono ' + (deger >= eski ? 'deger-yesil' : 'deger-kirmizi');
 }
 
-// ─────────────────── BAHİS ───────────────────
-async function bahistePara(yon) {
-  if (aktifBahis) { bildirimGoster('Zaten aktif bir bahsiniz var!', false); return; }
+// ─── BAHIS (TEK BUTON - BAS) ───
+async function basBahistePara() {
+  if (!kullanici) { window.location.href = '/kayit'; return; }
+  if (aktifBahis) { bildirimGoster('Zaten aktif bir pozisyonunuz var!', false); return; }
+
   const miktar = parseInt(document.getElementById('bahis-miktar').value);
-  if (!miktar || miktar < 1) { bildirimGoster('Geçerli bir miktar girin!', false); return; }
+  if (!miktar || miktar < 1) { bildirimGoster('Gecerli bir miktar girin!', false); return; }
   if (miktar > kullanici.jeton) { bildirimGoster('Yetersiz jeton!', false); return; }
 
   const r = await fetch('/api/bahis', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jeton_miktari: miktar, yon })
+    body: JSON.stringify({ jeton_miktari: miktar, yon: 'yukari' })
   });
   const d = await r.json();
   if (!d.basari) { bildirimGoster(d.mesaj, false); return; }
 
-  aktifBahis = { id: d.bahisId, miktar, yon, girdigiDeger: d.girtigiDeger || d.girdigiDeger };
+  aktifBahis = { id: d.bahisId, miktar, girdigiDeger: d.girdigiDeger };
   kullanici.jeton -= miktar;
-  document.getElementById('jeton-miktar').textContent = kullanici.jeton.toLocaleString('tr-TR');
+  guncelleBilgi();
 
-  document.getElementById('bahis-panel').style.opacity = '0.5';
-  const aktifDiv = document.getElementById('aktif-bahis');
-  aktifDiv.style.display = 'flex';
-  document.getElementById('aktif-miktar').textContent = miktar.toLocaleString('tr-TR');
-  document.getElementById('aktif-giris-deger').textContent = (d.girdigiDeger || d.girtigiDeger || '?');
+  // UI kilit
+  document.getElementById('bas-btn').disabled = true;
+  document.getElementById('bas-btn').textContent = 'BEKLENIYOR...';
+  document.getElementById('bahis-panel').classList.add('aktif-pozisyon');
 
-  bildirimGoster(`${miktar} jeton pozisyon girildi — ${yon === 'yukari' ? 'YUKSELIS' : 'DUSUS'}`, true);
+  // Aktif item efekti
+  const aktifItem = document.querySelector('.aktif-item-efekt');
+  if (aktifItem) aktifItem.classList.add('item-parlak');
+
+  // 5 saniyelik geri sayım
+  geriSayimSaniye = 5;
+  geriSayimGoster();
+
+  geriSayimTimer = setInterval(() => {
+    geriSayimSaniye--;
+    geriSayimGoster();
+    if (geriSayimSaniye <= 0) {
+      clearInterval(geriSayimTimer);
+      geriSayimTimer = null;
+      otomatikSat();
+    }
+  }, 1000);
 }
 
-async function satisYap() {
+function geriSayimGoster() {
+  const el = document.getElementById('geri-sayim');
+  if (!el) return;
+  el.textContent = geriSayimSaniye;
+  el.style.display = 'block';
+  el.className = 'geri-sayim-rakam' + (geriSayimSaniye <= 2 ? ' kritik' : '');
+}
+
+async function otomatikSat() {
   if (!aktifBahis) return;
+
   const r = await fetch('/api/sat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ bahis_id: aktifBahis.id })
   });
   const d = await r.json();
-  if (!d.basari) { bildirimGoster(d.mesaj, false); return; }
+  if (!d.basari) { bildirimGoster(d.mesaj, false); resetBahis(); return; }
 
   kullanici.jeton = d.yeniJeton;
-  document.getElementById('jeton-miktar').textContent = d.yeniJeton.toLocaleString('tr-TR');
+  guncelleBilgi();
 
-  const kazanc = d.kazanc;
-  const mesaj = kazanc > 0 ? `+${kazanc.toLocaleString('tr-TR')}` : kazanc < 0 ? `${kazanc.toLocaleString('tr-TR')}` : `+0`;
-  sonucGoster(kazanc, mesaj);
+  // Kocaman sonuc goster
+  sonucGoster(d.kazanc);
+  resetBahis();
 
-  aktifBahis = null;
-  document.getElementById('bahis-panel').style.opacity = '1';
-  document.getElementById('aktif-bahis').style.display = 'none';
-  document.getElementById('anlik-kazan-goster').textContent = '';
+  // Item efekt kaldır
+  const aktifItem = document.querySelector('.aktif-item-efekt');
+  if (aktifItem) aktifItem.classList.remove('item-parlak');
 
-  // İtem barını güncelle
   const info = await fetch('/api/benim-bilgilerim');
   const iData = await info.json();
-  itemBarGuncelle(iData.itemler);
+  if (iData.basari) itemBarGuncelle(iData.itemler);
 }
 
-function anlikKazancGoster(mevcutDeger) {
-  if (!aktifBahis) return;
-  const giris = parseFloat(aktifBahis.girdigiDeger) || mevcutDeger;
-  const miktar = aktifBahis.miktar;
-  let oran;
-  if (aktifBahis.yon === 'yukari') {
-    oran = (mevcutDeger - giris) / giris;
-  } else {
-    oran = (giris - mevcutDeger) / giris;
-  }
-  const tahmini = Math.round(miktar * oran);
-  const el = document.getElementById('anlik-kazan-goster');
-  el.textContent = tahmini >= 0 ? `+${tahmini}` : `${tahmini}`;
-  el.style.color = tahmini >= 0 ? '#4ade80' : '#f87171';
+function resetBahis() {
+  aktifBahis = null;
+  const btn = document.getElementById('bas-btn');
+  if (btn) { btn.disabled = false; btn.textContent = 'BAS'; }
+  document.getElementById('bahis-panel').classList.remove('aktif-pozisyon');
+  const el = document.getElementById('geri-sayim');
+  if (el) el.style.display = 'none';
 }
 
-function sonucGoster(kazanc, mesaj) {
-  const el = document.getElementById('sonuc-bildirim');
-  el.className = `sonuc-bildirim sonuc-${kazanc > 0 ? 'kazan' : kazanc < 0 ? 'kayip' : 'basabas'}`;
-  el.textContent = mesaj;
-  el.style.display = 'block';
-  setTimeout(() => { el.style.display = 'none'; }, 3500);
+function sonucGoster(kazanc) {
+  const overlay = document.getElementById('sonuc-overlay');
+  const rakam = document.getElementById('sonuc-rakam');
+  if (!overlay || !rakam) return;
+
+  const pozitif = kazanc > 0;
+  const sifir = kazanc === 0;
+  rakam.textContent = pozitif ? `+${kazanc.toLocaleString('tr-TR')}` : kazanc.toLocaleString('tr-TR');
+  rakam.className = 'sonuc-rakam ' + (pozitif ? 'pozitif' : sifir ? 'sifir' : 'negatif');
+  overlay.style.display = 'flex';
+
+  setTimeout(() => {
+    overlay.style.display = 'none';
+  }, 3000);
 }
 
-// ─────────────────── İTEM BAR ───────────────────
+// ─── İTEM BAR ───
 function itemBarGuncelle(itemler) {
   const bar = document.getElementById('item-bar');
+  if (!bar) return;
   bar.innerHTML = '';
   if (!itemler || itemler.length === 0) return;
 
+  const isimler = { 'iki_kat_kar': '2X KAR', 'zarar_kalkan': 'ZARAR KALKANI', 'para_kopar': 'PARA KOPAR' };
   itemler.forEach(item => {
-    const ikonlar = { 'iki_kat_kar': '2X', 'zarar_kalkan': 'KLK', 'para_kopar': 'ROB' };
-    const isimler = { 'iki_kat_kar': '2X Kar', 'zarar_kalkan': 'Zarar Kalkani', 'para_kopar': 'Para Kopar' };
-    const btn = document.createElement('button');
-    btn.className = 'item-bar-btn';
-    btn.innerHTML = `${ikonlar[item.item_kod] || '🎁'} ${isimler[item.item_kod] || item.item_kod} <span class="item-kullanim-badge">${item.kalan_kullanim}x</span>`;
-    if (item.item_kod === 'para_kopar') {
-      btn.onclick = () => paraKopar();
-    }
-    bar.appendChild(btn);
+    const div = document.createElement('div');
+    div.className = 'item-chip aktif-item-efekt';
+    div.dataset.kod = item.item_kod;
+    div.innerHTML = `<span class="item-chip-isim">${isimler[item.item_kod] || item.item_kod}</span><span class="item-chip-sayi">${item.kalan_kullanim}x</span>`;
+    if (item.item_kod === 'para_kopar') div.onclick = () => paraKopar();
+    bar.appendChild(div);
   });
 }
 
 async function paraKopar() {
+  if (!kullanici) { window.location.href = '/kayit'; return; }
   const r = await fetch('/api/para-kopar', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
   const d = await r.json();
   if (d.basari) {
-    bildirimGoster(`${d.hedefNick} oyuncusundan ${d.calinanMiktar} jeton calindi.`, true);
+    bildirimGoster(`${d.hedefNick} oyuncusundan ${d.calinanMiktar} jeton calindi`, true);
     kullanici.jeton = d.yeniJeton;
-    document.getElementById('jeton-miktar').textContent = d.yeniJeton.toLocaleString('tr-TR');
+    guncelleBilgi();
     const info = await fetch('/api/benim-bilgilerim');
     const iData = await info.json();
-    itemBarGuncelle(iData.itemler);
+    if (iData.basari) itemBarGuncelle(iData.itemler);
   } else {
     bildirimGoster(d.mesaj, false);
   }
 }
 
-// ─────────────────── OYUNCU LİSTESİ ───────────────────
+// ─── OYUNCU LİSTESİ ───
 function oyuncuListesiGoster(oyuncular) {
   const liste = document.getElementById('oyuncu-listesi');
   const sayac = document.getElementById('oyuncu-sayisi');
+  if (!liste || !sayac) return;
   sayac.textContent = oyuncular.length;
   liste.innerHTML = '';
+  oyuncular.sort((a, b) => b.jeton - a.jeton);
   oyuncular.forEach(o => {
     const benim = kullanici && o.id === kullanici.id;
+    const renk = o.renk || nickRenkAl(o.nick);
     const div = document.createElement('div');
-    div.className = `oyuncu-satir ${benim ? 'benim-oyuncu' : ''}`;
-    div.innerHTML = `
-      <span class="oyuncu-nick">${benim ? '⭐ ' : ''}${o.nick}</span>
-      <span class="oyuncu-jeton">🪙 ${o.jeton.toLocaleString('tr-TR')}</span>
-    `;
+    div.className = 'oyuncu-satir' + (benim ? ' benim-oyuncu' : '');
+    div.innerHTML = `<span class="oyuncu-nick" style="color:${renk}">${benim ? '► ' : ''}${escapeHtml(o.nick)}</span><span class="oyuncu-jeton">${o.jeton.toLocaleString('tr-TR')}</span>`;
     liste.appendChild(div);
   });
 }
 
-// ─────────────────── CHAT ───────────────────
-function chatEkle(nick, mesaj, tarih) {
+function nickRenkAl(nick) {
+  const renkler = ['#e879f9','#a78bfa','#60a5fa','#34d399','#fbbf24','#f87171','#fb923c','#38bdf8','#4ade80','#c084fc','#f472b6','#818cf8','#2dd4bf','#facc15','#fb7185'];
+  let hash = 0;
+  for (let i = 0; i < nick.length; i++) hash = nick.charCodeAt(i) + ((hash << 5) - hash);
+  return renkler[Math.abs(hash) % renkler.length];
+}
+
+// ─── CHAT ───
+function chatEkle(nick, mesaj, tarih, jeton, renk, sira) {
   const div = document.getElementById('chat-mesajlar');
+  if (!div) return;
   const tarihObj = new Date(tarih);
   const saatStr = tarihObj.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
   const benim = kullanici && nick === kullanici.nick;
+  const nickRenk = renk || nickRenkAl(nick);
+
   const el = document.createElement('div');
-  el.className = `chat-satir ${benim ? 'benim-chat' : ''}`;
-  el.innerHTML = `<span class="chat-nick">${nick}</span><span class="chat-zaman">${saatStr}</span><span class="chat-metin">${escapeHtml(mesaj)}</span>`;
+  el.className = 'chat-satir' + (benim ? ' benim-chat' : '');
+  el.innerHTML = `
+    <span class="chat-zaman">${saatStr}</span>
+    <span class="chat-nick" style="color:${nickRenk}">${escapeHtml(nick)}</span>
+    <span class="chat-meta">#${sira || '?'} · ${(jeton || 0).toLocaleString('tr-TR')} jeton</span>
+    <span class="chat-metin">${escapeHtml(mesaj)}</span>
+  `;
   div.appendChild(el);
-  if (div.children.length > 100) div.firstChild.remove();
+  if (div.children.length > 120) div.firstChild.remove();
 }
 
 function chatKaydirAsagi() {
   const div = document.getElementById('chat-mesajlar');
-  div.scrollTop = div.scrollHeight;
+  if (div) div.scrollTop = div.scrollHeight;
 }
 
 function mesajGonder() {
+  if (!kullanici) { window.location.href = '/giris'; return; }
   const input = document.getElementById('chat-input');
   const mesaj = input.value.trim();
   if (!mesaj) return;
@@ -331,17 +378,17 @@ function mesajGonder() {
   input.value = '';
 }
 
-function escapeHtml(str) {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+function bildirimGoster(mesaj, basari) {
+  const el = document.getElementById('bildirim-bar');
+  if (!el) return;
+  el.textContent = mesaj;
+  el.className = 'bildirim-bar ' + (basari ? 'bildirim-ok' : 'bildirim-hata');
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 3000);
 }
 
-// ─────────────────── GENEL ───────────────────
-function bildirimGoster(mesaj, basari) {
-  const el = document.getElementById('sonuc-bildirim');
-  el.className = `sonuc-bildirim ${basari ? 'sonuc-kazan' : 'sonuc-kayip'}`;
-  el.textContent = mesaj;
-  el.style.display = 'block';
-  setTimeout(() => { el.style.display = 'none'; }, 3000);
+function escapeHtml(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 async function cikisYap() {
@@ -349,4 +396,13 @@ async function cikisYap() {
   window.location.href = '/giris';
 }
 
-init();
+init().then(() => {
+  if (kullanici) socket.emit('auth', { kullanici_id: kullanici.id });
+  // Misafir: bilgi alanlarını gizle/göster
+  if (!kullanici) {
+    const kb = document.getElementById('kullanici-bilgi-alan');
+    const ma = document.getElementById('misafir-alan');
+    if (kb) kb.style.display = 'none';
+    if (ma) ma.style.display = 'flex';
+  }
+});

@@ -4,52 +4,40 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DemliCoin — Kayit Ol</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body class="auth-sayfa">
   <div class="auth-kart">
     <div class="auth-logo">
-      <div class="logo-icon-buyuk">DC</div>
+      <div class="auth-logo-mark">DC</div>
       <h1>DemliCoin</h1>
       <p>Kayit ol, 500 jeton kazan</p>
     </div>
-    <form id="kayit-form">
-      <div class="form-grup">
-        <label>Nick</label>
-        <input type="text" id="kayit-nick" placeholder="3-20 karakter" required minlength="3" maxlength="20" autocomplete="username" />
+    <form id="form">
+      <div class="auth-form-grup">
+        <label class="auth-label">Nick</label>
+        <input class="auth-input" id="nick" type="text" placeholder="3-20 karakter" required minlength="3" maxlength="20" autocomplete="username" />
       </div>
-      <div class="form-grup">
-        <label>Sifre</label>
-        <input type="password" id="kayit-sifre" placeholder="En az 4 karakter" required minlength="4" autocomplete="new-password" />
+      <div class="auth-form-grup">
+        <label class="auth-label">Sifre</label>
+        <input class="auth-input" id="sifre" type="password" placeholder="En az 4 karakter" required minlength="4" autocomplete="new-password" />
       </div>
-      <div id="kayit-hata" class="hata-mesaj" style="display:none;"></div>
-      <button type="submit" class="btn btn-ana btn-tam" style="height:44px;font-size:14px;">Kayit Ol</button>
+      <div id="hata" class="auth-hata" style="display:none;"></div>
+      <button type="submit" class="auth-submit">KAYIT OL</button>
     </form>
-    <div class="auth-alt">
-      Zaten hesabiniz var mi? <a href="/giris">Giris Yap</a>
-    </div>
+    <div class="auth-alt">Zaten hesabiniz var mi? <a href="/giris">Giris Yap</a></div>
   </div>
-
   <script>
-    document.getElementById('kayit-form').addEventListener('submit', async (e) => {
+    document.getElementById('form').addEventListener('submit', async e => {
       e.preventDefault();
-      const nick = document.getElementById('kayit-nick').value.trim();
-      const sifre = document.getElementById('kayit-sifre').value;
-      const hata = document.getElementById('kayit-hata');
-      hata.style.display = 'none';
-
-      const r = await fetch('/api/kayit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nick, sifre })
-      });
+      const h = document.getElementById('hata'); h.style.display='none';
+      const r = await fetch('/api/kayit', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ nick: document.getElementById('nick').value.trim(), sifre: document.getElementById('sifre').value }) });
       const d = await r.json();
-      if (d.basari) {
-        window.location.href = '/';
-      } else {
-        hata.textContent = d.mesaj;
-        hata.style.display = 'block';
-      }
+      if (d.basari) window.location.href = '/';
+      else { h.textContent = d.mesaj; h.style.display = 'block'; }
     });
   </script>
 </body>

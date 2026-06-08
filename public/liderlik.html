@@ -3,54 +3,66 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DemliCoin — Liderlik Tablosu</title>
+  <title>DemliCoin — Liderlik</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/style.css" />
 </head>
-<body>
-  <div id="uygulama" style="min-height:100vh;">
-    <header class="ust-bar">
-      <div class="logo-alan">
-        <a href="/" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
-          <div class="logo-icon">DC</div>
-          <span class="logo-yazi">DemliCoin</span>
-        </a>
+<body class="sayfa-body">
+  <header class="ust-bar">
+    <div class="logo-alan">
+      <a href="/" class="logo-link">
+        <div class="logo-mark">DC</div>
+        <span class="logo-text">DemliCoin</span>
+      </a>
+    </div>
+    <div class="kullanici-bilgi">
+      <span class="nick-pill" id="hosgeldin-nick"></span>
+      <div class="jeton-pill">
+        <span class="jeton-label">JETON</span>
+        <span class="jeton-sayi" id="jeton-miktar">0</span>
       </div>
-      <div class="kullanici-bilgi">
-        <span class="nick-goster" id="hosgeldin-nick"></span>
-        <div class="jeton-goster">
-          <span class="jeton-label">JETON</span>
-          <span id="jeton-miktar">0</span>
-        </div>
-        <div class="nav-ayrac"></div>
-        <a href="/" class="btn btn-kucuk">Oyun</a>
-        <a href="/market" class="btn btn-kucuk">Market</a>
-        <button onclick="cikisYap()" class="btn btn-tehlike btn-kucuk">Cikis</button>
-      </div>
-    </header>
+      <div class="nav-sep"></div>
+      <a href="/" class="nav-link">Oyun</a>
+      <a href="/market" class="nav-link">Market</a>
+      <button onclick="cikisYap()" class="btn-ghost-kirmizi">Cikis</button>
+    </div>
+  </header>
 
-    <div class="sayfa-icerik">
+  <div class="sayfa-icerik">
+    <div class="sayfa-baslik-grup">
       <h1 class="sayfa-h1">Liderlik Tablosu</h1>
-      <div class="liderlik-kart">
-        <table class="liderlik-tablo">
-          <thead>
-            <tr>
-              <th style="text-align:center;">Sira</th>
-              <th>Oyuncu</th>
-              <th>Jeton</th>
-              <th>Toplam Yatirim</th>
-            </tr>
-          </thead>
-          <tbody id="liderlik-body"></tbody>
-        </table>
-      </div>
+      <span class="sayfa-aciklama">En fazla jetona sahip oyuncular</span>
+    </div>
+    <div class="tablo-kart">
+      <table class="lider-tablo">
+        <thead>
+          <tr>
+            <th class="th-sira">SIRA</th>
+            <th>OYUNCU</th>
+            <th class="th-sayi">JETON</th>
+            <th class="th-sayi">TOPLAM YATIRIM</th>
+          </tr>
+        </thead>
+        <tbody id="liderlik-body"></tbody>
+      </table>
     </div>
   </div>
 
   <script>
+    function nickRenkAl(nick) {
+      const renkler = ['#e879f9','#a78bfa','#60a5fa','#34d399','#fbbf24','#f87171','#fb923c','#38bdf8','#4ade80','#c084fc','#f472b6','#818cf8','#2dd4bf','#facc15','#fb7185'];
+      let hash = 0;
+      for (let i = 0; i < nick.length; i++) hash = nick.charCodeAt(i) + ((hash << 5) - hash);
+      return renkler[Math.abs(hash) % renkler.length];
+    }
+
     async function init() {
       const r = await fetch('/api/benim-bilgilerim');
       if (!r.ok) { window.location.href = '/giris'; return; }
       const d = await r.json();
+      if (!d.basari) { window.location.href = '/giris'; return; }
       document.getElementById('hosgeldin-nick').textContent = d.kullanici.nick;
       document.getElementById('jeton-miktar').textContent = d.kullanici.jeton.toLocaleString('tr-TR');
       yukleLiderlik(d.kullanici.nick);
@@ -62,31 +74,30 @@
       const tbody = document.getElementById('liderlik-body');
       tbody.innerHTML = '';
       d.liste.forEach((k, i) => {
-        const benim = k.nick === benimNick;
-        let siraHtml;
-        if (i === 0) siraHtml = `<span class="sira-top-1">1</span>`;
-        else if (i === 1) siraHtml = `<span class="sira-top-2">2</span>`;
-        else if (i === 2) siraHtml = `<span class="sira-top-3">3</span>`;
-        else siraHtml = `<span class="sira-numara">${i + 1}</span>`;
+        const benim = !k.bot && k.nick === benimNick;
+        const renk = k.renk || nickRenkAl(k.nick);
+        let siraEl;
+        if (i === 0) siraEl = `<span class="sira-1">1</span>`;
+        else if (i === 1) siraEl = `<span class="sira-2">2</span>`;
+        else if (i === 2) siraEl = `<span class="sira-3">3</span>`;
+        else siraEl = `<span class="sira-n">${i + 1}</span>`;
 
         tbody.innerHTML += `
-          <tr class="${benim ? 'benim-satir' : ''}">
-            <td class="sira-td">${siraHtml}</td>
-            <td class="nick-td">
-              ${k.nick}${benim ? '<span class="sen-etiketi">SEN</span>' : ''}
+          <tr class="${benim ? 'benim-satir' : ''} ${k.bot ? 'bot-satir' : ''}">
+            <td class="td-sira">${siraEl}</td>
+            <td>
+              <span class="lider-nick" style="color:${renk}">${escapeHtml(k.nick)}</span>
+              ${k.bot ? '<span class="bot-rozet">BOT</span>' : ''}
+              ${benim ? '<span class="sen-rozet">SEN</span>' : ''}
             </td>
-            <td class="jeton-td">${k.jeton.toLocaleString('tr-TR')}</td>
-            <td class="yatirim-td">${(k.toplam_yatirilan || 0).toFixed(2)} TL</td>
-          </tr>
-        `;
+            <td class="td-sayi mono">${k.jeton.toLocaleString('tr-TR')}</td>
+            <td class="td-sayi mono yatirim">${(k.toplam_yatirilan || 0).toFixed(2)} TL</td>
+          </tr>`;
       });
     }
 
-    async function cikisYap() {
-      await fetch('/api/cikis', { method: 'POST' });
-      window.location.href = '/giris';
-    }
-
+    function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    async function cikisYap() { await fetch('/api/cikis', { method: 'POST' }); window.location.href = '/giris'; }
     init();
   </script>
 </body>
