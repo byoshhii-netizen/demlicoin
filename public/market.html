@@ -38,6 +38,7 @@
     <div class="sekme-bar">
       <button class="sekme-btn aktif-sekme" onclick="sekmeAc('gucler',this)">Ozel Gucler</button>
       <button class="sekme-btn" onclick="sekmeAc('jetonlar',this)">Jeton Paketleri</button>
+      <button class="sekme-btn" onclick="sekmeAc('promo',this)">Promosyon Kodu</button>
     </div>
 
     <div id="sekme-gucler">
@@ -46,6 +47,20 @@
 
     <div id="sekme-jetonlar" style="display:none;">
       <div id="paket-grid" class="paket-grid"></div>
+    </div>
+
+    <div id="sekme-promo" style="display:none;">
+      <div class="promo-sayfa-wrap">
+        <div class="promo-sayfa-kart">
+          <h2 style="font-size:18px;font-weight:800;margin-bottom:8px;">Promosyon Kodu Kullan</h2>
+          <p style="font-size:13px;color:var(--t2);margin-bottom:20px;">Kodunuzu girin, jeton veya item kazan.</p>
+          <div class="promo-wrap" style="display:flex;max-width:420px;">
+            <input id="promo-input" class="promo-input" type="text" placeholder="PROMOSYON KODU" maxlength="30" />
+            <button onclick="promoKullan()" class="promo-btn">KULLAN</button>
+          </div>
+          <div id="promo-msg" class="market-bildirim" style="display:none;margin-top:14px;position:static;"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -132,8 +147,25 @@
     function sekmeAc(s, btn) {
       document.getElementById('sekme-gucler').style.display = s==='gucler'?'block':'none';
       document.getElementById('sekme-jetonlar').style.display = s==='jetonlar'?'block':'none';
+      document.getElementById('sekme-promo').style.display = s==='promo'?'block':'none';
       document.querySelectorAll('.sekme-btn').forEach(b=>b.classList.remove('aktif-sekme'));
       btn.classList.add('aktif-sekme');
+    }
+
+    async function promoKullan() {
+      const kod = document.getElementById('promo-input').value.trim();
+      if (!kod) return;
+      const r = await fetch('/api/promosyon/kullan', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({kod}) });
+      const d = await r.json();
+      const el = document.getElementById('promo-msg');
+      el.textContent = d.mesaj;
+      el.className = `market-bildirim ${d.basari ? 'bildirim-basari' : 'bildirim-hata'}`;
+      el.style.display = 'block';
+      if (d.basari) {
+        document.getElementById('promo-input').value = '';
+        kullanici.jeton = d.yeniJeton;
+        document.getElementById('jeton-miktar').textContent = d.yeniJeton.toLocaleString('tr-TR');
+      }
     }
 
     function toast(msg, ok) {

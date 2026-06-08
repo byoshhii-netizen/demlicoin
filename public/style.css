@@ -1302,3 +1302,31 @@ body {
   .tur-sayac-wrap { display: none; }
   .duyuru-kapsayici { bottom: 10px; right: 10px; max-width: calc(100vw - 20px); }
 }
+
+/* Promosyon sayfa kartı */
+.promo-sayfa-wrap { padding: 20px 0; }
+.promo-sayfa-kart {
+  background: var(--bg-1);
+  border: 1px solid var(--brd);
+  border-radius: var(--rad2);
+  padding: 32px;
+  max-width: 560px;
+}
+
+/* ─── market bildirim (inline) ─── */
+.market-bildirim.bildirim-basari {
+  background: var(--green-dim);
+  border: 1px solid rgba(16,185,129,0.3);
+  color: var(--green);
+  padding: 10px 16px;
+  border-radius: var(--rad);
+  font-size: 13px; font-weight: 600;
+}
+.market-bildirim.bildirim-hata {
+  background: var(--red-dim);
+  border: 1px solid rgba(239,68,68,0.3);
+  color: var(--red);
+  padding: 10px 16px;
+  border-radius: var(--rad);
+  font-size: 13px; font-weight: 600;
+}
