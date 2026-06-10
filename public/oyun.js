@@ -404,7 +404,7 @@ async function bassBasildi() {
 
     if (!d.basari) {
       bildirimGoster(d.mesaj, false);
-      if (btn) { btn.disabled = false; btn.textContent = 'GİR'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'BAS'; }
       return;
     }
 
@@ -422,11 +422,10 @@ async function bassBasildi() {
     if (gd) gd.textContent = d.girdigiDeger.toFixed(2);
     const aw = document.getElementById('aktif-bilgi-wrap');
     if (aw) aw.style.display = 'flex';
-    document.querySelectorAll('.item-chip').forEach(c => c.classList.add('item-parlak'));
     bildirimGoster('Pozisyon açıldı — ' + miktar.toLocaleString('tr-TR') + ' jeton @ ' + d.girdigiDeger.toFixed(2), true);
   } catch(e) {
     bildirimGoster('Bağlantı hatası!', false);
-    if (btn) { btn.disabled = false; btn.textContent = 'GİR'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'BAS'; }
   }
 }
 

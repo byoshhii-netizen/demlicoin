@@ -370,11 +370,16 @@
       <!-- SITE AYARLARI -->
       <section id="panel-siteayar" class="admin-panel">
         <h2 class="admin-h2">Site Ayarlari</h2>
-        <div class="admin-kart" style="max-width:420px;">
+        <div class="admin-kart" style="max-width:520px;">
           <h3>Coin &amp; Oyun</h3>
           <div class="fg"><label>Coin Ismi</label><input id="sa-isim" type="text" placeholder="DemliCoin" /></div>
           <div class="fg"><label>Coin Kisaltmasi</label><input id="sa-kisaltma" type="text" placeholder="DC" maxlength="6" /></div>
           <div class="fg"><label>Minimum Bahis (Jeton)</label><input id="sa-min-bahis" type="number" value="150" min="1" /></div>
+          <div class="fg">
+            <label>Kullanim Kosullari Metni</label>
+            <small style="color:var(--t3);display:block;margin-bottom:6px;">Bos birakirsaniz varsayilan koşullar gösterilir. Satır geçişi için Enter kullanin.</small>
+            <textarea id="sa-kosul" rows="10" placeholder="DemliCoin Kullanim Kosullari...&#10;&#10;1. Yas Siniri&#10;Bu platforma kayit icin 16 yasini doldurmus olmaniz gerekir..."></textarea>
+          </div>
           <button class="admin-btn-ana" onclick="siteAyarKaydet()">Kaydet</button>
           <div id="sa-msg" class="admin-msg" style="display:none;"></div>
         </div>

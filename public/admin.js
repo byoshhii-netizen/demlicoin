@@ -757,11 +757,17 @@ async function yukleSiteAyar() {
     document.getElementById('sa-isim').value = d.ayar.coin_ismi || 'DemliCoin';
     document.getElementById('sa-kisaltma').value = d.ayar.coin_kisaltma || 'DC';
     document.getElementById('sa-min-bahis').value = d.ayar.min_bahis || 150;
+    document.getElementById('sa-kosul').value = d.ayar.kullanim_kosullari || '';
   }
 }
 
 async function siteAyarKaydet() {
-  const body = { coin_ismi: document.getElementById('sa-isim').value, coin_kisaltma: document.getElementById('sa-kisaltma').value, min_bahis: parseInt(document.getElementById('sa-min-bahis').value)||150 };
+  const body = {
+    coin_ismi: document.getElementById('sa-isim').value,
+    coin_kisaltma: document.getElementById('sa-kisaltma').value,
+    min_bahis: parseInt(document.getElementById('sa-min-bahis').value)||150,
+    kullanim_kosullari: document.getElementById('sa-kosul').value.trim() || null
+  };
   const r = await fetch('/api/admin/site-ayarlari', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   const d = await r.json();
   msg('sa-msg', d.mesaj || (d.basari ? 'Kaydedildi' : 'Hata'), d.basari);

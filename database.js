@@ -175,6 +175,7 @@ try { db.exec(`ALTER TABLE site_ayarlari ADD COLUMN min_bahis INTEGER DEFAULT 15
 try { db.exec(`ALTER TABLE grafik_ayarlari ADD COLUMN tur_suresi INTEGER DEFAULT 60`); } catch(e) {}
 try { db.exec(`ALTER TABLE kullanicilar ADD COLUMN celik_kart INTEGER DEFAULT 0`); } catch(e) {}
 try { db.exec(`ALTER TABLE kullanici_itemlari ADD COLUMN aktif INTEGER DEFAULT 0`); } catch(e) {}
+try { db.exec(`ALTER TABLE site_ayarlari ADD COLUMN kullanim_kosullari TEXT DEFAULT NULL`); } catch(e) {}
 
 // Site ayarları
 const siteAyarSayisi = db.prepare('SELECT COUNT(*) as c FROM site_ayarlari').get();

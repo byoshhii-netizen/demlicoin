@@ -122,6 +122,11 @@ app.get('/api/site-ayarlari', (req, res) => {
   res.json({ basari: true, ayar: ayar || { coin_ismi: 'DemliCoin', coin_kisaltma: 'DC', min_bahis: 150 } });
 });
 
+app.get('/api/kullanim-kosullari', (req, res) => {
+  const ayar = db.prepare('SELECT kullanim_kosullari FROM site_ayarlari WHERE id = 1').get();
+  res.json({ basari: true, metin: (ayar && ayar.kullanim_kosullari) || '' });
+});
+
 app.post('/api/bahis', (req, res) => {
   if (!req.session.kullanici) return res.status(401).json({ basari: false, mesaj: 'Giris gerekli.' });
   const k = db.prepare('SELECT * FROM kullanicilar WHERE id = ?').get(req.session.kullanici.id);
@@ -355,11 +360,14 @@ app.get('/api/duyurular', (req, res) => {
 });
 
 // ─── SLOT ───
+// Metin bazlı semboller (emoji yok)
 const SLOT_SEMBOLLER = {
-  normal: ['🍋','🍋','🍊','🍊','🍇','🍇','⭐','⭐','7️⃣','💎'],
-  vip:    ['🔥','🔥','💰','💰','👑','👑','⚡','⚡','💎','7️⃣'],
-  plus:   ['💎','💎','👑','👑','🚀','🚀','⚡','⚡','🌟','7️⃣']
+  normal: ['7','BAR','DC','BAR','DC','★','BAR','DC','★','7'],
+  vip:    ['7','VIP','DC','VIP','DC','★★','VIP','DC','★★','7'],
+  plus:   ['7','MAX','DC','MAX','DC','★★★','MAX','DC','★★★','7']
 };
+
+const SLOT_OZEL = { normal: ['7'], vip: ['7','★★'], plus: ['7','★★★'] };
 
 function slotCevir(tip, ayar) {
   const semboller = SLOT_SEMBOLLER[tip] || SLOT_SEMBOLLER.normal;
@@ -375,10 +383,9 @@ function slotCevir(tip, ayar) {
   const carpanMax = ayar[`${tip}_carpan_max`] || 5;
 
   if (s1 === s2 && s2 === s3) {
-    // 3 aynı — büyük kazanç
-    const ozel = ['7️⃣','💎','👑','🌟'];
+    const ozel = SLOT_OZEL[tip] || ['7'];
     if (ozel.includes(s1)) {
-      carpan = carpanMax; // max çarpan
+      carpan = carpanMax;
     } else {
       carpan = carpanMin + (carpanMax - carpanMin) * 0.6;
     }
@@ -620,8 +627,9 @@ app.post('/api/admin/botlar-toplu-kaydet', adminGerektir, (req, res) => {
 
 app.get('/api/admin/site-ayarlari', adminGerektir, (req, res) => res.json({ basari: true, ayar: db.prepare('SELECT * FROM site_ayarlari WHERE id = 1').get() }));
 app.post('/api/admin/site-ayarlari', adminGerektir, (req, res) => {
-  const { coin_ismi, coin_kisaltma, min_bahis } = req.body;
-  db.prepare('UPDATE site_ayarlari SET coin_ismi=?,coin_kisaltma=?,min_bahis=? WHERE id=1').run(coin_ismi||'DemliCoin', coin_kisaltma||'DC', parseInt(min_bahis)||150);
+  const { coin_ismi, coin_kisaltma, min_bahis, kullanim_kosullari } = req.body;
+  db.prepare('UPDATE site_ayarlari SET coin_ismi=?,coin_kisaltma=?,min_bahis=?,kullanim_kosullari=? WHERE id=1')
+    .run(coin_ismi||'DemliCoin', coin_kisaltma||'DC', parseInt(min_bahis)||150, kullanim_kosullari||null);
   res.json({ basari: true, mesaj: 'Kaydedildi.' });
 });
 

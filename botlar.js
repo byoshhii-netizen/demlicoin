@@ -193,9 +193,11 @@ class BotMotoru {
     const kisalik = this.botKisiliginiAl(bot);
 
     const zamanlandir = () => {
-      // Rastgele aralık: 15 sn ile 3 dakika arası (kişiliğe göre)
-      const minSure = 15000;
-      const maxSure = kisalik.chatSiklik > 0.7 ? 60000 : kisalik.chatSiklik > 0.4 ? 120000 : 180000;
+      // Rastgele aralık: kişiliğe göre 2-8 dakika arası
+      const minSure = 120000; // 2 dakika minimum
+      const maxSure = kisalik.chatSiklik > 0.7 ? 240000  // konuşkan: 2-4 dk
+                    : kisalik.chatSiklik > 0.4 ? 360000  // normal: 2-6 dk
+                    : 480000;                             // sakin: 2-8 dk
       const sure = minSure + Math.random() * (maxSure - minSure);
 
       const t = setTimeout(() => {
