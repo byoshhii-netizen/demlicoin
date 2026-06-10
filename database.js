@@ -170,15 +170,11 @@ try { db.exec(`
   );
 `); } catch(e) {}
 
-// Slot ayarlari default
-try {
-  const sa = db.prepare('SELECT COUNT(*) as c FROM slot_ayarlari').get();
-  if (sa.c === 0) db.prepare('INSERT INTO slot_ayarlari (id) VALUES (1)').run();
-} catch(e) {}
-try { db.exec(`ALTER TABLE kullanicilar ADD COLUMN renk TEXT DEFAULT NULL`); } catch(e) {}
+// ─── SLOT TABLOLARI ───
 try { db.exec(`ALTER TABLE site_ayarlari ADD COLUMN min_bahis INTEGER DEFAULT 150`); } catch(e) {}
 try { db.exec(`ALTER TABLE grafik_ayarlari ADD COLUMN tur_suresi INTEGER DEFAULT 60`); } catch(e) {}
 try { db.exec(`ALTER TABLE kullanicilar ADD COLUMN celik_kart INTEGER DEFAULT 0`); } catch(e) {}
+try { db.exec(`ALTER TABLE kullanici_itemlari ADD COLUMN aktif INTEGER DEFAULT 0`); } catch(e) {}
 
 // Site ayarları
 const siteAyarSayisi = db.prepare('SELECT COUNT(*) as c FROM site_ayarlari').get();

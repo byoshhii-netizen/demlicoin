@@ -4,16 +4,32 @@ let slotAyar = null;
 let aktifTip = 'normal';
 let ceviriyor = false;
 
+// Metin tabanlı semboller — emoji yok
 const SEMBOLLER = {
-  normal: ['🍋','🍋','🍊','🍊','🍇','🍇','⭐','⭐','7️⃣','💎'],
-  vip:    ['🔥','🔥','💰','💰','👑','👑','⚡','⚡','💎','7️⃣'],
-  plus:   ['💎','💎','👑','👑','🚀','🚀','⚡','⚡','🌟','7️⃣']
-};
-
-const SEMBOL_AGIRLIK = {
-  '🍋':3,'🍊':3,'🍇':3,'⭐':2,'7️⃣':1,'💎':1,
-  '🔥':3,'💰':3,'👑':2,'⚡':2,
-  '🚀':3,'🌟':1
+  normal: [
+    { k: '7',   cls: 'sym-7',   agir: 1 },
+    { k: 'BAR', cls: 'sym-bar', agir: 2 },
+    { k: 'DC',  cls: 'sym-dc',  agir: 3 },
+    { k: '★',   cls: 'sym-star',agir: 2 },
+    { k: 'BAR', cls: 'sym-bar', agir: 2 },
+    { k: 'DC',  cls: 'sym-dc',  agir: 3 },
+  ],
+  vip: [
+    { k: '7',   cls: 'sym-7',   agir: 1 },
+    { k: 'VIP', cls: 'sym-bar', agir: 2 },
+    { k: 'DC',  cls: 'sym-dc',  agir: 2 },
+    { k: '★★',  cls: 'sym-star',agir: 2 },
+    { k: 'BAR', cls: 'sym-bar', agir: 3 },
+    { k: 'VIP', cls: 'sym-bar', agir: 2 },
+  ],
+  plus: [
+    { k: '7',   cls: 'sym-7',   agir: 1 },
+    { k: '★★★', cls: 'sym-star',agir: 2 },
+    { k: 'DC',  cls: 'sym-dc',  agir: 2 },
+    { k: 'MAX', cls: 'sym-bar', agir: 2 },
+    { k: 'BAR', cls: 'sym-def', agir: 3 },
+    { k: '★★★', cls: 'sym-star',agir: 2 },
+  ],
 };
 
 // ─── INIT ───
@@ -54,12 +70,11 @@ async function init() {
 function trackDoldur(makaraIdx, tip) {
   const track = document.getElementById(`track-${makaraIdx}`);
   if (!track) return;
-  const semboller = SEMBOLLER[tip] || SEMBOLLER.normal;
-  // 20 sembol üret (animasyon için yeterli)
+  const pool = SEMBOLLER[tip] || SEMBOLLER.normal;
   let html = '';
-  for (let i = 0; i < 20; i++) {
-    const s = semboller[Math.floor(Math.random() * semboller.length)];
-    html += `<div class="slot-sembol">${s}</div>`;
+  for (let i = 0; i < 12; i++) {
+    const s = pool[Math.floor(Math.random() * pool.length)];
+    html += `<div class="slot-sembol ${s.cls}">${s.k}</div>`;
   }
   track.innerHTML = html;
 }
@@ -86,13 +101,12 @@ function slotTipSec(tip, btn) {
   const makine = document.getElementById('slot-makine');
   makine.className = `slot-makine slot-makine-${tip}`;
 
-  // Bilgi satırı güncelle
-  const fiyat = slotAyar ? slotAyar[`${tip}_fiyat`] : (tip==='normal'?50:tip==='vip'?200:500);
-  document.getElementById('aktif-tip-goster').textContent = tip.toUpperCase() + (tip==='plus'?'+':'');
-  document.getElementById('aktif-bahis-goster').textContent = fiyat;
-
   // Makaraları yeni sembollerle doldur
   for (let i = 0; i < 3; i++) trackDoldur(i, tip);
+
+  // Fiyatı da bilgi satırında göster
+  document.getElementById('aktif-tip-goster').textContent = tip === 'plus' ? 'PLUS+' : tip.toUpperCase();
+  document.getElementById('aktif-bahis-goster').textContent = (slotAyar ? slotAyar[`${tip}_fiyat`] : (tip==='normal'?50:tip==='vip'?200:500)).toLocaleString('tr-TR');
 }
 
 // ─── FİYATLARI GÜNCELLE ───
@@ -108,7 +122,7 @@ function fiyatlariGuncelle() {
 
   // Aktif bahis güncelle
   const fiyat = slotAyar[`${aktifTip}_fiyat`];
-  document.getElementById('aktif-bahis-goster').textContent = fiyat;
+  document.getElementById('aktif-bahis-goster').textContent = fiyat.toLocaleString('tr-TR');
 }
 
 // ─── ÖDEME TABLOSU ───
@@ -231,37 +245,38 @@ async function slotCevir() {
 let animTimers = [];
 
 function animasyonBaslat() {
-  const semboller = SEMBOLLER[aktifTip] || SEMBOLLER.normal;
+  const pool = SEMBOLLER[aktifTip] || SEMBOLLER.normal;
 
   for (let i = 0; i < 3; i++) {
     const track = document.getElementById(`track-${i}`);
-    if (!track) continue;
-    track.classList.add('slot-donuyor');
+    if (track) track.classList.add('slot-donuyor');
   }
 
-  // Sürekli sembol değiştir (görsel etki)
   for (let i = 0; i < 3; i++) {
     const t = setInterval(() => {
       const track = document.getElementById(`track-${i}`);
       if (!track) return;
-      // Track'i yeniden doldur
       let html = '';
-      for (let j = 0; j < 20; j++) {
-        const s = semboller[Math.floor(Math.random() * semboller.length)];
-        html += `<div class="slot-sembol">${s}</div>`;
+      for (let j = 0; j < 12; j++) {
+        const s = pool[Math.floor(Math.random() * pool.length)];
+        html += `<div class="slot-sembol ${s.cls}">${s.k}</div>`;
       }
       track.innerHTML = html;
-    }, 80 + i * 30);
+    }, 70 + i * 25);
     animTimers.push(t);
   }
 }
 
 function animasyonDurdur(sonucSemboller, callback) {
-  // Timer'ları temizle
   animTimers.forEach(t => clearInterval(t));
   animTimers = [];
 
-  // Makaraları sırayla durdur (cascade)
+  // Sembol nesnesini bul (server string dönüyor)
+  const pool = SEMBOLLER[aktifTip] || SEMBOLLER.normal;
+  function sembolBul(k) {
+    return pool.find(s => s.k === k) || { k, cls: 'sym-def' };
+  }
+
   for (let i = 0; i < 3; i++) {
     setTimeout(() => {
       const track = document.getElementById(`track-${i}`);
@@ -269,20 +284,17 @@ function animasyonDurdur(sonucSemboller, callback) {
       track.classList.remove('slot-donuyor');
       track.classList.add('slot-durdu');
 
-      // Merkez hücreye sonuç sembolünü koy
+      const s = sembolBul(sonucSemboller[i]);
       track.innerHTML = `
-        <div class="slot-sembol slot-sembol-hayalet">${sonucSemboller[i]}</div>
-        <div class="slot-sembol slot-sembol-aktif" id="sonuc-${i}">${sonucSemboller[i]}</div>
-        <div class="slot-sembol slot-sembol-hayalet">${sonucSemboller[i]}</div>
+        <div class="slot-sembol slot-sembol-hayalet ${s.cls}">${s.k}</div>
+        <div class="slot-sembol slot-sembol-aktif ${s.cls}" id="sonuc-${i}">${s.k}</div>
+        <div class="slot-sembol slot-sembol-hayalet ${s.cls}">${s.k}</div>
       `;
 
-      setTimeout(() => track.classList.remove('slot-durdu'), 400);
+      setTimeout(() => track.classList.remove('slot-durdu'), 420);
 
-      // Son makarada callback
-      if (i === 2 && callback) {
-        setTimeout(callback, 300);
-      }
-    }, i * 350);
+      if (i === 2 && callback) setTimeout(callback, 300);
+    }, i * 340);
   }
 }
 

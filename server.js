@@ -164,29 +164,29 @@ app.post('/api/sat', (req, res) => {
     kazan = -bahis.miktar;
     db.prepare('UPDATE kullanicilar SET jeton = jeton + ? WHERE id = ?').run(0, req.session.kullanici.id);
   } else {
-    // Celik Kart — x4 kar (her zaman aktif, kullanim azalmaz)
-    const celikKart = db.prepare(`SELECT ki.* FROM kullanici_itemlari ki WHERE ki.kullanici_id = ? AND ki.item_kod = 'celik_kart' AND ki.kalan_kullanim > 0`).get(req.session.kullanici.id);
+    // Celik Kart — x4 kar (aktif edilmişse)
+    const celikKart = db.prepare(`SELECT ki.* FROM kullanici_itemlari ki WHERE ki.kullanici_id = ? AND ki.item_kod = 'celik_kart' AND ki.kalan_kullanim > 0 AND ki.aktif = 1`).get(req.session.kullanici.id);
     if (celikKart && kazan > 0) {
       kazan = kazan * 4;
     }
-    // 2X Kar (celik kart yoksa veya her zaman)
+    // 2X Kar — aktif edilmişse uygula ve 1 azalt
     if (kazan > 0 && !celikKart) {
-      const ikiKat = db.prepare(`SELECT * FROM kullanici_itemlari WHERE kullanici_id = ? AND item_kod = 'iki_kat_kar' AND kalan_kullanim > 0`).get(req.session.kullanici.id);
+      const ikiKat = db.prepare(`SELECT * FROM kullanici_itemlari WHERE kullanici_id = ? AND item_kod = 'iki_kat_kar' AND kalan_kullanim > 0 AND aktif = 1`).get(req.session.kullanici.id);
       if (ikiKat) {
         kazan = kazan * 2;
         const yk = ikiKat.kalan_kullanim - 1;
         if (yk <= 0) db.prepare('DELETE FROM kullanici_itemlari WHERE id = ?').run(ikiKat.id);
-        else db.prepare('UPDATE kullanici_itemlari SET kalan_kullanim = ? WHERE id = ?').run(yk, ikiKat.id);
+        else db.prepare('UPDATE kullanici_itemlari SET kalan_kullanim = ?, aktif = 0 WHERE id = ?').run(yk, ikiKat.id);
       }
     }
-    // Zarar Kalkani
+    // Zarar Kalkani — aktif edilmişse uygula ve 1 azalt
     if (kazan < 0) {
-      const kalkan = db.prepare(`SELECT * FROM kullanici_itemlari WHERE kullanici_id = ? AND item_kod = 'zarar_kalkan' AND kalan_kullanim > 0`).get(req.session.kullanici.id);
+      const kalkan = db.prepare(`SELECT * FROM kullanici_itemlari WHERE kullanici_id = ? AND item_kod = 'zarar_kalkan' AND kalan_kullanim > 0 AND aktif = 1`).get(req.session.kullanici.id);
       if (kalkan) {
         kazan = Math.round(kazan / 2);
         const yk = kalkan.kalan_kullanim - 1;
         if (yk <= 0) db.prepare('DELETE FROM kullanici_itemlari WHERE id = ?').run(kalkan.id);
-        else db.prepare('UPDATE kullanici_itemlari SET kalan_kullanim = ? WHERE id = ?').run(yk, kalkan.id);
+        else db.prepare('UPDATE kullanici_itemlari SET kalan_kullanim = ?, aktif = 0 WHERE id = ?').run(yk, kalkan.id);
       }
     }
     const geri = bahis.miktar + kazan;
@@ -261,6 +261,31 @@ app.post('/api/para-kopar', (req, res) => {
     else db.prepare('UPDATE kullanici_itemlari SET kalan_kullanim = ? WHERE id = ?').run(yk, koparItem.id);
     res.json({ basari: true, calinanMiktar: gercekMiktar, hedefNick: hedef.data.nick + ' (bot)', yeniJeton });
   }
+});
+
+// ─── İTEM AKTİF TOGGLE ───
+app.post('/api/item/toggle', (req, res) => {
+  if (!req.session.kullanici) return res.status(401).json({ basari: false });
+  const { item_id } = req.body;
+  const item = db.prepare('SELECT * FROM kullanici_itemlari WHERE id = ? AND kullanici_id = ?').get(item_id, req.session.kullanici.id);
+  if (!item) return res.json({ basari: false, mesaj: 'Item bulunamadi.' });
+
+  // Celik kart toggle'lanamaz, her zaman aktif
+  if (item.item_kod === 'celik_kart') {
+    return res.json({ basari: false, mesaj: 'Celik Kart otomatik aktiftir.' });
+  }
+
+  // Aynı tip başka aktif var mı? Aynı anda sadece 1 aktif olabilir
+  const yeniAktif = item.aktif ? 0 : 1;
+  if (yeniAktif === 1) {
+    // Diğer aynı türleri pasifleştir
+    db.prepare('UPDATE kullanici_itemlari SET aktif = 0 WHERE kullanici_id = ? AND item_kod = ?')
+      .run(req.session.kullanici.id, item.item_kod);
+  }
+
+  db.prepare('UPDATE kullanici_itemlari SET aktif = ? WHERE id = ?').run(yeniAktif, item_id);
+  const guncel = db.prepare('SELECT * FROM kullanici_itemlari WHERE kullanici_id = ?').all(req.session.kullanici.id);
+  res.json({ basari: true, aktif: yeniAktif === 1, itemler: guncel });
 });
 
 // ─── MARKET ───

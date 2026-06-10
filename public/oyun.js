@@ -547,21 +547,69 @@ function duyuruKapat(id) {
   aktifDuyurular.delete(id);
 }
 
-// ─── İTEM BAR ───
+// ─── ENVANTER (İTEM BAR) ───
+const ITEM_META = {
+  'iki_kat_kar':  { isim: '2X KAR',      kisalt: '2X',   aciklama: 'Kazancini 2 katlar',      renk: '#f0b429' },
+  'zarar_kalkan': { isim: 'ZARAR KALKANI',kisalt: 'KLK',  aciklama: 'Zararin yariya iner',      renk: '#60a5fa' },
+  'para_kopar':   { isim: 'PARA KOPAR',   kisalt: 'ROB',  aciklama: 'Hedeften jeton al',        renk: '#f87171' },
+  'celik_kart':   { isim: 'CELIK KART',   kisalt: 'CELIK',aciklama: 'x4 kazanc, her zaman aktif',renk: '#b8e0ff' },
+};
+
 function itemBarGuncelle(itemler) {
   const bar = document.getElementById('item-bar');
   if (!bar) return;
   bar.innerHTML = '';
   if (!itemler || itemler.length === 0) return;
-  const isimler = { 'iki_kat_kar': '2X KAR', 'zarar_kalkan': 'ZARAR KALKANI', 'para_kopar': 'PARA KOPAR', 'celik_kart': '💎 ÇELİK KART' };
+
   itemler.forEach(item => {
-    const div = document.createElement('div');
+    const meta = ITEM_META[item.item_kod] || { isim: item.item_kod, kisalt: 'ITM', aciklama: '', renk: '#a78bfa' };
     const isCelik = item.item_kod === 'celik_kart';
-    div.className = 'item-chip' + (isCelik ? ' item-celik' : '');
-    div.innerHTML = `<span class="item-chip-isim">${isimler[item.item_kod] || item.item_kod}</span><span class="item-chip-sayi">${isCelik ? '∞' : item.kalan_kullanim + 'x'}</span>`;
-    if (item.item_kod === 'para_kopar') div.onclick = () => paraKopar();
+    const isAktif = isCelik || item.aktif;
+    const sayi = isCelik ? '' : `${item.kalan_kullanim}x`;
+
+    const div = document.createElement('div');
+    div.className = 'envanter-chip' + (isAktif ? ' envanter-aktif' : ' envanter-pasif');
+    div.dataset.itemId = item.id;
+    div.dataset.itemKod = item.item_kod;
+    div.style.setProperty('--item-renk', meta.renk);
+
+    div.innerHTML = `
+      <div class="envanter-ust">
+        <span class="envanter-kisalt">${meta.kisalt}</span>
+        ${sayi ? `<span class="envanter-sayi">${sayi}</span>` : ''}
+      </div>
+      <span class="envanter-isim">${meta.isim}</span>
+      ${!isCelik ? `<span class="envanter-durum">${isAktif ? 'AKTİF' : 'PASİF'}</span>` : '<span class="envanter-durum celik-durum">OTOMATIK</span>'}
+    `;
+
+    if (!isCelik) {
+      div.addEventListener('click', () => {
+        if (item.item_kod === 'para_kopar' && (isCelik || item.aktif)) {
+          paraKopar();
+        } else {
+          itemToggle(item.id, div);
+        }
+      });
+    }
+
     bar.appendChild(div);
   });
+}
+
+async function itemToggle(itemId, el) {
+  if (!kullanici) return;
+  try {
+    const r = await fetch('/api/item/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item_id: itemId })
+    });
+    const d = await r.json();
+    if (!d.basari) { bildirimGoster(d.mesaj, false); return; }
+    // UI güncelle
+    itemBarGuncelle(d.itemler);
+    bildirimGoster(d.aktif ? 'Item aktif edildi.' : 'Item pasife alindi.', true);
+  } catch(e) {}
 }
 
 async function paraKopar() {
