@@ -530,21 +530,38 @@ app.post('/api/cark/cevir', (req, res) => {
 
   // Bahsi düş
   db.prepare('UPDATE kullanicilar SET jeton = jeton - ? WHERE id = ?').run(cark.fiyat, k.id);
-  // Kazancı ekle
-  if (secilen.jeton > 0) {
-    db.prepare('UPDATE kullanicilar SET jeton = jeton + ? WHERE id = ?').run(secilen.jeton, k.id);
-  }
-  const yeniJeton = db.prepare('SELECT jeton FROM kullanicilar WHERE id = ?').get(k.id).jeton;
 
-  // Dilim index'i bul (animasyon için)
+  // İFLAS dilimi — negatif jeton = ek ceza
+  const iflas = secilen.iflas === true || (secilen.isim && secilen.isim.toUpperCase().includes('IFLAS'));
+  const iflasKayip = iflas ? Math.abs(secilen.jeton || 0) : 0;
+
+  if (secilen.jeton > 0) {
+    // Kazanç
+    db.prepare('UPDATE kullanicilar SET jeton = jeton + ? WHERE id = ?').run(secilen.jeton, k.id);
+  } else if (iflasKayip > 0) {
+    // İFLAS — ek ceza düş (jetonun altına inmesini engelle)
+    const mevcutJeton = db.prepare('SELECT jeton FROM kullanicilar WHERE id = ?').get(k.id).jeton;
+    const gercekKayip = Math.min(iflasKayip, mevcutJeton);
+    if (gercekKayip > 0) {
+      db.prepare('UPDATE kullanicilar SET jeton = jeton - ? WHERE id = ?').run(gercekKayip, k.id);
+    }
+  }
+
+  const yeniJeton = db.prepare('SELECT jeton FROM kullanicilar WHERE id = ?').get(k.id).jeton;
   const dilimIdx = dilimler.findIndex(d => d === secilen);
+
+  // Net hesapla
+  let net = secilen.jeton - cark.fiyat;
+  if (iflasKayip > 0) net = -(cark.fiyat + iflasKayip);
 
   res.json({
     basari: true,
     dilim: secilen,
     dilimIdx,
+    iflas,
+    iflasKayip,
     cark_fiyat: cark.fiyat,
-    net: secilen.jeton - cark.fiyat,
+    net,
     yeniJeton
   });
 });

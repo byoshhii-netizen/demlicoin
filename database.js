@@ -194,31 +194,31 @@ try {
   const carkSayisi = db.prepare('SELECT COUNT(*) as c FROM cark_ayarlari').get();
   if (carkSayisi.c === 0) {
     const normalDilimler = JSON.stringify([
-      { isim: 'KAYBETTIN', jeton: 0,    sans: 30 },
-      { isim: '50 JETON',  jeton: 50,   sans: 25 },
-      { isim: '100 JETON', jeton: 100,  sans: 20 },
-      { isim: '200 JETON', jeton: 200,  sans: 12 },
-      { isim: '500 JETON', jeton: 500,  sans: 8  },
-      { isim: '1K JETON',  jeton: 1000, sans: 4  },
-      { isim: '2K JETON',  jeton: 2000, sans: 1  }
+      { isim: 'IFLAS',     jeton: 50,   sans: 30, iflas: true  },
+      { isim: '50 JETON',  jeton: 50,   sans: 25, iflas: false },
+      { isim: '100 JETON', jeton: 100,  sans: 20, iflas: false },
+      { isim: '200 JETON', jeton: 200,  sans: 12, iflas: false },
+      { isim: '500 JETON', jeton: 500,  sans: 8,  iflas: false },
+      { isim: '1K JETON',  jeton: 1000, sans: 4,  iflas: false },
+      { isim: '2K JETON',  jeton: 2000, sans: 1,  iflas: false }
     ]);
     const vipDilimler = JSON.stringify([
-      { isim: 'KAYBETTIN', jeton: 0,    sans: 20 },
-      { isim: '200 JETON', jeton: 200,  sans: 25 },
-      { isim: '500 JETON', jeton: 500,  sans: 20 },
-      { isim: '1K JETON',  jeton: 1000, sans: 15 },
-      { isim: '2K JETON',  jeton: 2000, sans: 10 },
-      { isim: '5K JETON',  jeton: 5000, sans: 8  },
-      { isim: '10K JETON', jeton: 10000,sans: 2  }
+      { isim: 'IFLAS',     jeton: 200,  sans: 20, iflas: true  },
+      { isim: '200 JETON', jeton: 200,  sans: 25, iflas: false },
+      { isim: '500 JETON', jeton: 500,  sans: 20, iflas: false },
+      { isim: '1K JETON',  jeton: 1000, sans: 15, iflas: false },
+      { isim: '2K JETON',  jeton: 2000, sans: 10, iflas: false },
+      { isim: '5K JETON',  jeton: 5000, sans: 8,  iflas: false },
+      { isim: '10K JETON', jeton: 10000,sans: 2,  iflas: false }
     ]);
     const plusDilimler = JSON.stringify([
-      { isim: 'KAYBETTIN', jeton: 0,     sans: 15 },
-      { isim: '1K JETON',  jeton: 1000,  sans: 25 },
-      { isim: '2K JETON',  jeton: 2000,  sans: 20 },
-      { isim: '5K JETON',  jeton: 5000,  sans: 18 },
-      { isim: '10K JETON', jeton: 10000, sans: 12 },
-      { isim: '25K JETON', jeton: 25000, sans: 8  },
-      { isim: '50K JETON', jeton: 50000, sans: 2  }
+      { isim: 'IFLAS',     jeton: 500,   sans: 15, iflas: true  },
+      { isim: '1K JETON',  jeton: 1000,  sans: 25, iflas: false },
+      { isim: '2K JETON',  jeton: 2000,  sans: 20, iflas: false },
+      { isim: '5K JETON',  jeton: 5000,  sans: 18, iflas: false },
+      { isim: '10K JETON', jeton: 10000, sans: 12, iflas: false },
+      { isim: '25K JETON', jeton: 25000, sans: 8,  iflas: false },
+      { isim: '50K JETON', jeton: 50000, sans: 2,  iflas: false }
     ]);
     db.prepare("INSERT INTO cark_ayarlari (tip, isim, fiyat, aktif, dilimler) VALUES (?,?,?,?,?)").run('normal', 'Normal Cark', 100, 1, normalDilimler);
     db.prepare("INSERT INTO cark_ayarlari (tip, isim, fiyat, aktif, dilimler) VALUES (?,?,?,?,?)").run('vip', 'VIP Cark', 400, 1, vipDilimler);

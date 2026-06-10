@@ -85,7 +85,7 @@ function carkSec(id) {
 }
 
 // ─── ÇARK ÇİZ ───
-function carkCiz(dönmüsAci) {
+function carkCiz(donmusAci) {
   const canvas = document.getElementById('cark-canvas');
   if (!canvas || !aktifCark) return;
   const ctx = canvas.getContext('2d');
@@ -99,21 +99,20 @@ function carkCiz(dönmüsAci) {
   if (!dilimler || dilimler.length === 0) return;
 
   const toplamSans = dilimler.reduce((s, d) => s + (d.sans || 0), 0);
-  let baslangicAci = dönmüsAci - Math.PI / 2; // 12 saatten başla
+  let baslangicAci = donmusAci - Math.PI / 2;
 
+  // ─── DİLİMLERİ ÇİZ ───
   dilimler.forEach((d, i) => {
     const dilimAci = (d.sans / toplamSans) * 2 * Math.PI;
     const bitisAci = baslangicAci + dilimAci;
     const renk = DILIM_RENKLERI[i % DILIM_RENKLERI.length];
     const renkParlak = DILIM_RENK_PARLAK[i % DILIM_RENK_PARLAK.length];
 
-    // Dilim arkaplanı
+    // Alan
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.arc(cx, cy, r, baslangicAci, bitisAci);
     ctx.closePath();
-
-    // Gradient her dilimde
     const gradX = cx + Math.cos(baslangicAci + dilimAci / 2) * r * 0.5;
     const gradY = cy + Math.sin(baslangicAci + dilimAci / 2) * r * 0.5;
     const grad = ctx.createRadialGradient(gradX, gradY, 0, cx, cy, r);
@@ -121,42 +120,59 @@ function carkCiz(dönmüsAci) {
     grad.addColorStop(1, renk);
     ctx.fillStyle = grad;
     ctx.fill();
-
-    // Dilim sınırı
-    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // Metin
-    ctx.save();
-    const textAci = baslangicAci + dilimAci / 2;
-    const textR = r * 0.62;
-    ctx.translate(cx + Math.cos(textAci) * textR, cy + Math.sin(textAci) * textR);
-    ctx.rotate(textAci + Math.PI / 2);
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#fff';
-    ctx.font = `700 ${dilimAci > 0.5 ? 13 : 11}px Inter, sans-serif`;
-    ctx.fillText(d.isim, 0, 0);
-    if (d.jeton > 0) {
-      ctx.font = `600 ${dilimAci > 0.5 ? 11 : 9}px JetBrains Mono, monospace`;
-      ctx.fillStyle = 'rgba(255,255,255,0.7)';
-      ctx.fillText(`%${d.sans}`, 0, 14);
-    }
-    ctx.restore();
-
     baslangicAci = bitisAci;
+  });
+
+  // ─── METİNLERİ ÇİZ (dilim döndürme yerine mutlak koordinat) ───
+  let metin_aci = donmusAci - Math.PI / 2;
+  dilimler.forEach((d, i) => {
+    const dilimAci = (d.sans / toplamSans) * 2 * Math.PI;
+    const ortaAci = metin_aci + dilimAci / 2;
+    const textR = r * 0.60;
+    const tx = cx + Math.cos(ortaAci) * textR;
+    const ty = cy + Math.sin(ortaAci) * textR;
+
+    ctx.save();
+    ctx.translate(tx, ty);
+    // Metni okunabilir yönde tut — sağ yarıda normal, sol yarıda 180° çevir
+    const normalMi = ortaAci > -Math.PI / 2 && ortaAci < Math.PI / 2;
+    ctx.rotate(ortaAci + (normalMi ? 0 : Math.PI));
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Başlık
+    const fontSize = dilimAci > 0.6 ? 13 : dilimAci > 0.35 ? 11 : 9;
+    ctx.font = `700 ${fontSize}px Inter, sans-serif`;
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.shadowBlur = 3;
+    ctx.fillText(d.isim, 0, -7);
+
+    // Şans yüzdesi
+    ctx.font = `600 ${Math.max(8, fontSize - 2)}px JetBrains Mono, monospace`;
+    ctx.fillStyle = 'rgba(255,255,255,0.65)';
+    ctx.fillText(`%${d.sans}`, 0, 8);
+    ctx.shadowBlur = 0;
+
+    ctx.restore();
+    metin_aci += dilimAci;
   });
 
   // Dış halka
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, 2 * Math.PI);
-  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
   ctx.lineWidth = 3;
   ctx.stroke();
 
-  // İç daire (merkezi gizle)
+  // İç daire
   ctx.beginPath();
-  ctx.arc(cx, cy, 28, 0, 2 * Math.PI);
+  ctx.arc(cx, cy, 30, 0, 2 * Math.PI);
   ctx.fillStyle = '#0d0d1a';
   ctx.fill();
   ctx.strokeStyle = 'rgba(255,255,255,0.2)';
@@ -221,12 +237,16 @@ async function carkCevir() {
       document.getElementById('jeton-miktar').textContent = d.yeniJeton.toLocaleString('tr-TR');
 
       const sonEl = document.getElementById('cark-son-kazanc');
-      if (d.net > 0) {
+      if (d.iflas) {
+        sonEl.textContent = `IFLAS -${(d.cark_fiyat + d.iflasKayip).toLocaleString('tr-TR')}`;
+        sonEl.style.color = '#f87171';
+        iflasOverlay(d.iflasKayip, d.cark_fiyat);
+      } else if (d.net > 0) {
         sonEl.textContent = `+${d.net.toLocaleString('tr-TR')}`;
         sonEl.style.color = 'var(--green)';
         kazanOverlay(d.dilim, d.net);
       } else {
-        sonEl.textContent = d.dilim.isim;
+        sonEl.textContent = `-${d.cark_fiyat.toLocaleString('tr-TR')}`;
         sonEl.style.color = 'var(--red)';
         kayipEfekti();
       }
@@ -250,18 +270,16 @@ async function carkCevir() {
 let animId = null;
 
 function animasyonBaslat(hedefAci, callback) {
-  const sure = 4000; // 4 saniye
+  const sure = 4000;
   const baslangic = performance.now();
   const baslangicAci = mevcutAci;
 
   function adim(now) {
     const gecen = now - baslangic;
     const t = Math.min(gecen / sure, 1);
-    // Ease out cubic
     const ease = 1 - Math.pow(1 - t, 3);
     mevcutAci = baslangicAci + hedefAci * ease;
     carkCiz(mevcutAci);
-
     if (t < 1) {
       animId = requestAnimationFrame(adim);
     } else {
@@ -284,6 +302,23 @@ function kazanOverlay(dilim, net) {
   void el.offsetWidth;
   el.style.animation = '';
   setTimeout(() => { el.style.display = 'none'; }, 2500);
+}
+
+function iflasOverlay(iflasKayip, carkFiyat) {
+  const el = document.getElementById('cark-overlay');
+  document.getElementById('cark-ov-label').textContent = 'IFLAS';
+  document.getElementById('cark-ov-miktar').textContent = `-${(carkFiyat + iflasKayip).toLocaleString('tr-TR')}`;
+  document.getElementById('cark-ov-miktar').style.color = '#f87171';
+  document.getElementById('cark-ov-alt').textContent = `CARK (${carkFiyat.toLocaleString('tr-TR')}) + CEZA (${iflasKayip.toLocaleString('tr-TR')}) JETON`;
+  el.style.display = 'flex';
+  el.style.animation = 'none';
+  void el.offsetWidth;
+  el.style.animation = '';
+  setTimeout(() => {
+    document.getElementById('cark-ov-miktar').style.color = '';
+    el.style.display = 'none';
+  }, 3000);
+  kayipEfekti();
 }
 
 function kayipEfekti() {

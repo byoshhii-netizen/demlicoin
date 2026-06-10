@@ -700,11 +700,15 @@ async function yukleCarkAyar() {
     const renkler = { normal: 'var(--gold)', vip: '#a78bfa', plus: '#38bdf8' };
     const renk = renkler[cark.tip] || 'var(--gold)';
     const dilimlerHTML = cark.dilimler.map((d, i) => `
-      <div class="cark-dilim-satir" data-cark="${cark.id}" data-idx="${i}" style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
-        <input type="text" class="tablo-input cark-d-isim" value="${esc(d.isim)}" placeholder="Isim" style="flex:2;min-width:0;" />
-        <input type="number" class="tablo-input cark-d-jeton" value="${d.jeton}" min="0" placeholder="Jeton" style="width:90px;" />
+      <div class="cark-dilim-satir" data-cark="${cark.id}" data-idx="${i}" style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap;">
+        <input type="text" class="tablo-input cark-d-isim" value="${esc(d.isim)}" placeholder="Isim" style="flex:2;min-width:80px;" />
+        <input type="number" class="tablo-input cark-d-jeton" value="${d.jeton}" min="0" placeholder="Jeton" style="width:90px;" title="Kazan: pozitif | IFLAS: ceza miktari (negatif otom.)" />
         <input type="number" class="tablo-input cark-d-sans" value="${d.sans}" min="0.1" max="100" step="0.1" placeholder="%" style="width:70px;" />
         <span style="font-size:11px;color:var(--t3);white-space:nowrap;">%</span>
+        <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--t2);white-space:nowrap;cursor:pointer;">
+          <input type="checkbox" class="cark-d-iflas" ${d.iflas ? 'checked' : ''} style="accent-color:#f87171;" />
+          IFLAS
+        </label>
         <button class="tbtn tbtn-red" style="flex-shrink:0;padding:0 8px;height:28px;" onclick="carkDilimSil(${cark.id},${i})">Sil</button>
       </div>
     `).join('');
@@ -765,10 +769,14 @@ function carkDilimEkle(carkId) {
   div.dataset.idx = idx;
   div.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:6px;';
   div.innerHTML = `
-    <input type="text" class="tablo-input cark-d-isim" value="YENİ ODUL" placeholder="Isim" style="flex:2;min-width:0;" />
+    <input type="text" class="tablo-input cark-d-isim" value="YENİ ODUL" placeholder="Isim" style="flex:2;min-width:80px;" />
     <input type="number" class="tablo-input cark-d-jeton" value="0" min="0" placeholder="Jeton" style="width:90px;" />
     <input type="number" class="tablo-input cark-d-sans" value="5" min="0.1" max="100" step="0.1" placeholder="%" style="width:70px;" />
     <span style="font-size:11px;color:var(--t3);white-space:nowrap;">%</span>
+    <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--t2);white-space:nowrap;cursor:pointer;">
+      <input type="checkbox" class="cark-d-iflas" style="accent-color:#f87171;" />
+      IFLAS
+    </label>
     <button class="tbtn tbtn-red" style="flex-shrink:0;padding:0 8px;height:28px;" onclick="this.closest('.cark-dilim-satir').remove();carkToplamGuncelle(${carkId})">Sil</button>
   `;
   div.querySelectorAll('.cark-d-sans').forEach(inp => inp.addEventListener('input', () => carkToplamGuncelle(carkId)));
@@ -804,7 +812,8 @@ async function carkAyarKaydet() {
     const dilimler = [...satirlar].map(s => ({
       isim:  s.querySelector('.cark-d-isim').value.trim() || 'ODUL',
       jeton: parseInt(s.querySelector('.cark-d-jeton').value) || 0,
-      sans:  parseFloat(s.querySelector('.cark-d-sans').value) || 0
+      sans:  parseFloat(s.querySelector('.cark-d-sans').value) || 0,
+      iflas: s.querySelector('.cark-d-iflas') ? s.querySelector('.cark-d-iflas').checked : false
     }));
     const toplam = dilimler.reduce((s, d) => s + d.sans, 0);
     if (Math.abs(toplam - 100) > 0.5) {
