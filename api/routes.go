@@ -6,6 +6,7 @@ import (
 	"demcoin/p2p"
 	"demcoin/wallet"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -26,10 +27,19 @@ type Server struct {
 	hub     *p2p.Hub
 	console *console.Console
 	router  *mux.Router
+	store   storeIface
 }
 
-func NewServer(chain *blockchain.Chain, hub *p2p.Hub, con *console.Console) *Server {
-	s := &Server{chain: chain, hub: hub, console: con, router: mux.NewRouter()}
+type storeIface interface {
+	DeleteChatMessage(id int64) error
+	GetUserRestriction(addr string) (*blockchain.UserRestriction, error)
+	SetUserRestriction(addr, username string, muted, tradeBan bool) error
+	GetAllRestrictions() ([]*blockchain.UserRestriction, error)
+	GetPriceHistory(limit int) ([]*blockchain.PricePoint, error)
+}
+
+func NewServer(chain *blockchain.Chain, hub *p2p.Hub, con *console.Console, store storeIface) *Server {
+	s := &Server{chain: chain, hub: hub, console: con, router: mux.NewRouter(), store: store}
 	s.setupRoutes()
 	return s
 }
@@ -43,6 +53,10 @@ func (s *Server) setupRoutes() {
 	s.router.HandleFunc("/api/blocks", s.handleBlocks).Methods("GET")
 	s.router.HandleFunc("/api/state", s.handleState).Methods("GET")
 	s.router.HandleFunc("/api/chat/history", s.handleChatHistory).Methods("GET")
+	s.router.HandleFunc("/api/chat/delete", s.handleDeleteChat).Methods("POST")
+	s.router.HandleFunc("/api/price/history", s.handlePriceHistory).Methods("GET")
+	s.router.HandleFunc("/api/users/restrictions", s.handleGetRestrictions).Methods("GET")
+	s.router.HandleFunc("/api/users/restrict", s.handleSetRestriction).Methods("POST")
 	s.router.HandleFunc("/api/admin/kilitle", s.handleKilitle).Methods("POST")
 	s.router.HandleFunc("/api/admin/ac", s.handleAc).Methods("POST")
 	s.router.HandleFunc("/api/admin/yasakla", s.handleYasakla).Methods("POST")
@@ -196,6 +210,62 @@ func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleChatHistory(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, s.hub.Messages)
+}
+
+func (s *Server) handleDeleteChat(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Imza string `json:"imza"`
+		ID   int64  `json:"id"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	if !s.console.DogrulaKurucu(req.Imza, fmt.Sprintf("DeleteChat:%d", req.ID)) {
+		jsonErr(w, "YETKİSİZ", 403)
+		return
+	}
+	if err := s.store.DeleteChatMessage(req.ID); err != nil {
+		jsonErr(w, err.Error(), 500)
+		return
+	}
+	s.hub.BroadcastDeleteMsg(req.ID)
+	jsonOK(w, map[string]bool{"ok": true})
+}
+
+func (s *Server) handlePriceHistory(w http.ResponseWriter, r *http.Request) {
+	pts, err := s.store.GetPriceHistory(120)
+	if err != nil {
+		jsonErr(w, err.Error(), 500)
+		return
+	}
+	jsonOK(w, pts)
+}
+
+func (s *Server) handleGetRestrictions(w http.ResponseWriter, r *http.Request) {
+	list, err := s.store.GetAllRestrictions()
+	if err != nil {
+		jsonErr(w, err.Error(), 500)
+		return
+	}
+	jsonOK(w, list)
+}
+
+func (s *Server) handleSetRestriction(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Imza     string `json:"imza"`
+		Adres    string `json:"adres"`
+		Username string `json:"username"`
+		Muted    bool   `json:"muted"`
+		TradeBan bool   `json:"trade_ban"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	if !s.console.DogrulaKurucu(req.Imza, "Restrict:"+req.Adres) {
+		jsonErr(w, "YETKİSİZ", 403)
+		return
+	}
+	if err := s.store.SetUserRestriction(req.Adres, req.Username, req.Muted, req.TradeBan); err != nil {
+		jsonErr(w, err.Error(), 500)
+		return
+	}
+	jsonOK(w, map[string]bool{"ok": true})
 }
 
 func (s *Server) handleKilitle(w http.ResponseWriter, r *http.Request) {

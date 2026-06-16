@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>DemCoin</title>
+<link rel="icon" type="image/png" href="demcoins.png">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
@@ -12,8 +13,13 @@
 
 <header class="header">
   <div class="header-left">
+    <img src="demcoins.png" alt="DemCoin" class="header-logo" onerror="this.style.display='none'">
     <span class="logo">DEM<span class="logo-accent">COIN</span></span>
-    <span class="badge" id="net-badge"><i class="fa-solid fa-circle"></i> CANLI</span>
+    <span class="badge" id="net-badge"><i class="fa-solid fa-circle-dot"></i> CANLI</span>
+  </div>
+  <div class="header-center">
+    <span class="price-display"><span id="hdr-price">0.0000</span> <span class="price-unit">DEM/USD</span></span>
+    <span id="price-change" class="price-change"></span>
   </div>
   <div class="header-right">
     <span class="header-stat"><i class="fa-solid fa-cube"></i> <span id="hdr-block">0</span></span>
@@ -33,8 +39,11 @@
 
   <section class="card card-chart">
     <div class="card-header">
-      <span><i class="fa-solid fa-chart-line"></i> Ağ Aktivitesi</span>
-      <span class="card-sub">Son 60 blok</span>
+      <span><i class="fa-solid fa-chart-line"></i> DEM Fiyat Grafiği</span>
+      <div style="display:flex;gap:16px;align-items:center;">
+        <span id="chart-price" style="font-size:18px;font-weight:700;color:var(--green);">0.0000</span>
+        <span class="card-sub">Canlı</span>
+      </div>
     </div>
     <canvas id="canvas-chart"></canvas>
   </section>
@@ -76,11 +85,14 @@
   <section class="card card-chat">
     <div class="card-header">
       <span><i class="fa-solid fa-comments"></i> On-Chain Chat</span>
-      <span class="card-sub">1 DEM / mesaj</span>
+      <span class="card-sub" id="chat-username-display">1 DEM / mesaj</span>
+    </div>
+    <div class="chat-hint" id="chat-hint" style="display:none;">
+      <i class="fa-solid fa-circle-info"></i> Anonim adın: <strong id="anon-name-hint"></strong>
     </div>
     <div class="chat-messages" id="chat-messages"></div>
     <div class="chat-input-bar">
-      <input class="input-field" id="chat-input" placeholder="Mesaj yaz..." maxlength="500"
+      <input class="input-field" id="chat-input" placeholder="Cüzdanla giriş yap ve mesaj yaz..." maxlength="500"
         onkeydown="if(event.key==='Enter')sendChat()">
       <button class="btn-send" onclick="sendChat()"><i class="fa-solid fa-arrow-up"></i></button>
     </div>
@@ -107,27 +119,49 @@
       <span class="card-sub gold">Kurucu</span>
     </div>
     <div class="admin-body">
-      <div class="admin-section-title">Ağ Kontrolü</div>
-      <button class="btn-danger" onclick="adminCmd('kilitle')">
-        <i class="fa-solid fa-lock"></i> Ağı Kilitle
-      </button>
-      <button class="btn-success" onclick="adminCmd('ac')">
-        <i class="fa-solid fa-lock-open"></i> Ağı Aç
-      </button>
-      <button class="btn-gold" onclick="adminCmd('arz')">
-        <i class="fa-solid fa-shield"></i> Arzı Sabitle (50M)
-      </button>
-      <div class="admin-section-title" style="margin-top:16px;">Cüzdan Kontrolü</div>
-      <input class="input-field" id="ban-address" placeholder="Yasaklanacak adres...">
-      <button class="btn-danger" onclick="adminCmd('yasakla')" style="margin-top:6px;">
-        <i class="fa-solid fa-ban"></i> Cüzdan Yasakla
-      </button>
-      <div class="admin-section-title" style="margin-top:16px;">Token Basımı</div>
-      <input class="input-field" id="mint-address" placeholder="Hedef adres...">
-      <input class="input-field" id="mint-amount" type="number" placeholder="Miktar..." style="margin-top:6px;">
-      <button class="btn-gold" onclick="adminCmd('mint')" style="margin-top:6px;">
-        <i class="fa-solid fa-coins"></i> Token Bas
-      </button>
+      <div class="admin-tabs">
+        <button class="admin-tab active" onclick="switchAdminTab('network',this)">Ağ</button>
+        <button class="admin-tab" onclick="switchAdminTab('users',this)">Yatırımcılar</button>
+        <button class="admin-tab" onclick="switchAdminTab('token',this)">Token</button>
+      </div>
+
+      <div id="admin-tab-network" class="admin-tab-content">
+        <button class="btn-danger" onclick="adminCmd('kilitle')"><i class="fa-solid fa-lock"></i> Ağı Kilitle</button>
+        <button class="btn-success" onclick="adminCmd('ac')"><i class="fa-solid fa-lock-open"></i> Ağı Aç</button>
+        <button class="btn-gold" onclick="adminCmd('arz')"><i class="fa-solid fa-shield"></i> Arzı Sabitle (50M)</button>
+      </div>
+
+      <div id="admin-tab-users" class="admin-tab-content" style="display:none;">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Yatırımcı listesi</div>
+        <div id="user-restriction-list" class="restriction-list"></div>
+        <button class="btn-outline" onclick="loadRestrictions()" style="margin-top:8px;width:100%;font-size:12px;">
+          <i class="fa-solid fa-rotate"></i> Listeyi Yenile
+        </button>
+      </div>
+
+      <div id="admin-tab-token" class="admin-tab-content" style="display:none;">
+        <div class="form-group">
+          <label>Hedef adres</label>
+          <input class="input-field" id="mint-address" placeholder="DEM...">
+        </div>
+        <div class="form-group" style="margin-top:6px;">
+          <label>Miktar</label>
+          <input class="input-field" id="mint-amount" type="number" placeholder="100">
+        </div>
+        <button class="btn-gold" onclick="adminCmd('mint')" style="margin-top:8px;width:100%;">
+          <i class="fa-solid fa-coins"></i> Token Bas
+        </button>
+        <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px;">
+          <div class="form-group">
+            <label>Kara listeye ekle</label>
+            <input class="input-field" id="ban-address" placeholder="DEM...">
+          </div>
+          <button class="btn-danger" onclick="adminCmd('yasakla')" style="margin-top:6px;width:100%;">
+            <i class="fa-solid fa-ban"></i> Cüzdan Yasakla
+          </button>
+        </div>
+      </div>
+
       <div id="admin-result" class="result-msg" style="margin-top:10px;"></div>
     </div>
   </section>
@@ -140,8 +174,8 @@
       <span><i class="fa-solid fa-wallet"></i> Cüzdan</span>
       <button class="btn-icon" onclick="closeWalletModal()"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <div id="wallet-modal-content">
-      <div id="current-wallet-info" style="display:none;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);margin-bottom:12px;">
+    <div class="modal-body" id="wallet-modal-content">
+      <div id="current-wallet-info" style="display:none;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);margin-bottom:4px;">
         <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">BAĞLI CÜZDAN</div>
         <div id="modal-current-addr" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--green);word-break:break-all;"></div>
         <button onclick="logoutWallet()" style="margin-top:8px;background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius-sm);padding:6px 12px;font-size:12px;cursor:pointer;width:100%;">
@@ -160,6 +194,14 @@
         <i class="fa-solid fa-right-to-bracket"></i> Yükle
       </button>
     </div>
+  </div>
+</div>
+
+<div id="tx-notify" class="tx-notify" style="display:none;">
+  <img src="demcoins.png" alt="" class="tx-notify-logo" onerror="this.style.display='none'">
+  <div class="tx-notify-text">
+    <div class="tx-notify-title" id="tx-notify-title">Transfer Başarılı</div>
+    <div class="tx-notify-sub" id="tx-notify-sub"></div>
   </div>
 </div>
 

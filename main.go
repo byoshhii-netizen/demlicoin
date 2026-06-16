@@ -54,12 +54,18 @@ func main() {
 		}
 	}
 
+	priceEngine := blockchain.NewPriceEngine(1.0, func(price float64, history []blockchain.PricePoint) {
+		hub.BroadcastPrice(price, history)
+		go store.SavePricePoint(price)
+	})
+	priceEngine.Start()
+
 	fmt.Printf("Kurucu Adresi : %s\n", con.GetFounderAddress())
 	fmt.Printf("Bakiye        : %.0f DEM\n", chain.GetBalance(con.GetFounderAddress()))
 	fmt.Printf("Max Arz       : %.0f DEM\n", blockchain.MaxSupply)
 	fmt.Printf("Veritabani    : PostgreSQL\n")
 
-	srv := api.NewServer(chain, hub, con)
+	srv := api.NewServer(chain, hub, con, store)
 
 	port := os.Getenv("PORT")
 	if port == "" {

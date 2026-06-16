@@ -26,6 +26,10 @@ type Message struct {
 type ChatStore interface {
 	SaveChatMessage(cm *blockchain.ChatMessage) error
 	LoadRecentChat(limit int) ([]*blockchain.ChatMessage, error)
+	DeleteChatMessage(id int64) error
+	GetUserRestriction(addr string) (*blockchain.UserRestriction, error)
+	SetUserRestriction(addr, username string, muted, tradeBan bool) error
+	GetAllRestrictions() ([]*blockchain.UserRestriction, error)
 }
 
 type Hub struct {
@@ -129,6 +133,21 @@ func (h *Hub) BroadcastChat(cm *blockchain.ChatMessage) {
 	h.broadcast <- data
 }
 
+func (h *Hub) BroadcastPrice(price float64, history []blockchain.PricePoint) {
+	msg := Message{Type: "PRICE", Payload: map[string]interface{}{
+		"price":   price,
+		"history": history,
+	}}
+	data, _ := json.Marshal(msg)
+	h.broadcast <- data
+}
+
+func (h *Hub) BroadcastDeleteMsg(id int64) {
+	msg := Message{Type: "DELETE_MSG", Payload: id}
+	data, _ := json.Marshal(msg)
+	h.broadcast <- data
+}
+
 func (h *Hub) BroadcastNetworkAlert(event string) {
 	msg := Message{Type: "ALERT", Payload: map[string]string{"event": event, "time": time.Now().Format("15:04:05")}}
 	data, _ := json.Marshal(msg)
@@ -226,6 +245,14 @@ func (h *Hub) handleIncoming(c *Client, msg *Message) {
 
 func (h *Hub) handleChat(c *Client, msg *Message) {
 	if h.chain.Blacklist[c.Address] {
+		return
+	}
+
+	restr, _ := h.store.GetUserRestriction(c.Address)
+	if restr != nil && restr.Muted {
+		errMsg := Message{Type: "ERROR", Payload: "Susturuldunuz — mesaj atamazsınız"}
+		data, _ := json.Marshal(errMsg)
+		select { case c.send <- data: default: }
 		return
 	}
 

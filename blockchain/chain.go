@@ -36,6 +36,12 @@ type DBStore interface {
 	IsSupplyFixed() bool
 	WalletExists(address string) bool
 	GetBlockCount() int64
+	DeleteChatMessage(id int64) error
+	GetUserRestriction(addr string) (*UserRestriction, error)
+	SetUserRestriction(addr, username string, muted, tradeBan bool) error
+	GetAllRestrictions() ([]*UserRestriction, error)
+	SavePricePoint(value float64) error
+	GetPriceHistory(limit int) ([]*PricePoint, error)
 }
 
 type Chain struct {

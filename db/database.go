@@ -82,8 +82,23 @@ func Migrate() error {
 			username    TEXT NOT NULL,
 			content     TEXT NOT NULL,
 			tx_hash     TEXT NOT NULL,
+			deleted     BOOLEAN NOT NULL DEFAULT FALSE,
 			timestamp   TIMESTAMPTZ NOT NULL,
 			created_at  TIMESTAMPTZ DEFAULT NOW()
+		)`,
+
+		`CREATE TABLE IF NOT EXISTS user_restrictions (
+			address     TEXT PRIMARY KEY,
+			username    TEXT NOT NULL DEFAULT '',
+			muted       BOOLEAN NOT NULL DEFAULT FALSE,
+			trade_ban   BOOLEAN NOT NULL DEFAULT FALSE,
+			updated_at  TIMESTAMPTZ DEFAULT NOW()
+		)`,
+
+		`CREATE TABLE IF NOT EXISTS price_history (
+			id          BIGSERIAL PRIMARY KEY,
+			value       NUMERIC(30,8) NOT NULL,
+			recorded_at TIMESTAMPTZ DEFAULT NOW()
 		)`,
 
 		`CREATE TABLE IF NOT EXISTS network_state (

@@ -125,17 +125,17 @@ func SaveNetworkState(state *blockchain.NetworkState) error {
 }
 
 func SaveChatMessage(cm *blockchain.ChatMessage) error {
-	_, err := DB.Exec(`
+	err := DB.QueryRow(`
 		INSERT INTO chat_messages (from_addr, username, content, tx_hash, timestamp)
-		VALUES ($1, $2, $3, $4, $5)`,
+		VALUES ($1, $2, $3, $4, $5) RETURNING id`,
 		cm.From, cm.Username, cm.Content, cm.TxHash, cm.Timestamp,
-	)
+	).Scan(&cm.ID)
 	return err
 }
 
 func LoadRecentChat(limit int) ([]*blockchain.ChatMessage, error) {
 	rows, err := DB.Query(`
-		SELECT from_addr, username, content, tx_hash, timestamp
+		SELECT id, from_addr, username, content, tx_hash, deleted, timestamp
 		FROM chat_messages
 		ORDER BY timestamp DESC LIMIT $1`, limit)
 	if err != nil {
@@ -146,14 +146,75 @@ func LoadRecentChat(limit int) ([]*blockchain.ChatMessage, error) {
 	var msgs []*blockchain.ChatMessage
 	for rows.Next() {
 		cm := &blockchain.ChatMessage{}
-		rows.Scan(&cm.From, &cm.Username, &cm.Content, &cm.TxHash, &cm.Timestamp)
+		rows.Scan(&cm.ID, &cm.From, &cm.Username, &cm.Content, &cm.TxHash, &cm.Deleted, &cm.Timestamp)
 		msgs = append(msgs, cm)
 	}
-
 	for i, j := 0, len(msgs)-1; i < j; i, j = i+1, j-1 {
 		msgs[i], msgs[j] = msgs[j], msgs[i]
 	}
 	return msgs, nil
+}
+
+func DeleteChatMessage(id int64) error {
+	_, err := DB.Exec(`UPDATE chat_messages SET deleted = TRUE WHERE id = $1`, id)
+	return err
+}
+
+func GetUserRestriction(address string) (*blockchain.UserRestriction, error) {
+	r := &blockchain.UserRestriction{Address: address}
+	err := DB.QueryRow(`SELECT address, username, muted, trade_ban FROM user_restrictions WHERE address = $1`, address).
+		Scan(&r.Address, &r.Username, &r.Muted, &r.TradeBan)
+	if err != nil {
+		return &blockchain.UserRestriction{Address: address}, nil
+	}
+	return r, nil
+}
+
+func SetUserRestriction(address, username string, muted, tradeBan bool) error {
+	_, err := DB.Exec(`
+		INSERT INTO user_restrictions (address, username, muted, trade_ban, updated_at)
+		VALUES ($1, $2, $3, $4, NOW())
+		ON CONFLICT (address) DO UPDATE SET username = $2, muted = $3, trade_ban = $4, updated_at = NOW()`,
+		address, username, muted, tradeBan)
+	return err
+}
+
+func GetAllRestrictions() ([]*blockchain.UserRestriction, error) {
+	rows, err := DB.Query(`SELECT address, username, muted, trade_ban FROM user_restrictions`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var list []*blockchain.UserRestriction
+	for rows.Next() {
+		r := &blockchain.UserRestriction{}
+		rows.Scan(&r.Address, &r.Username, &r.Muted, &r.TradeBan)
+		list = append(list, r)
+	}
+	return list, nil
+}
+
+func SavePricePoint(value float64) error {
+	_, err := DB.Exec(`INSERT INTO price_history (value) VALUES ($1)`, value)
+	return err
+}
+
+func GetPriceHistory(limit int) ([]*blockchain.PricePoint, error) {
+	rows, err := DB.Query(`SELECT value, EXTRACT(EPOCH FROM recorded_at)::BIGINT FROM price_history ORDER BY recorded_at DESC LIMIT $1`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var pts []*blockchain.PricePoint
+	for rows.Next() {
+		p := &blockchain.PricePoint{}
+		rows.Scan(&p.Value, &p.Time)
+		pts = append(pts, p)
+	}
+	for i, j := 0, len(pts)-1; i < j; i, j = i+1, j-1 {
+		pts[i], pts[j] = pts[j], pts[i]
+	}
+	return pts, nil
 }
 
 func LoadRecentBlocks(limit int) ([]*blockchain.Block, error) {

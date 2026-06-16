@@ -53,11 +53,25 @@ type Validator struct {
 }
 
 type ChatMessage struct {
+	ID        int64     `json:"id"`
 	From      string    `json:"from"`
 	Username  string    `json:"username"`
 	Content   string    `json:"content"`
 	Timestamp time.Time `json:"timestamp"`
 	TxHash    string    `json:"tx_hash"`
+	Deleted   bool      `json:"deleted"`
+}
+
+type UserRestriction struct {
+	Address  string `json:"address"`
+	Username string `json:"username"`
+	Muted    bool   `json:"muted"`
+	TradeBan bool   `json:"trade_ban"`
+}
+
+type PricePoint struct {
+	Value float64 `json:"value"`
+	Time  int64   `json:"time"`
 }
 
 type NetworkState struct {
