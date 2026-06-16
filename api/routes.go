@@ -6,6 +6,7 @@ import (
 	"demcoin/p2p"
 	"demcoin/wallet"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -15,7 +16,9 @@ import (
 )
 
 var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true },
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
 type Server struct {
@@ -60,8 +63,10 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.chain.GetOrCreateWallet(address)
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
+		log.Printf("ws upgrade hata: %v", err)
 		return
 	}
 	s.hub.RegisterClient(conn, address)

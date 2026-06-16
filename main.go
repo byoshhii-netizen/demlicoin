@@ -54,10 +54,10 @@ func main() {
 		}
 	}
 
-	fmt.Printf("🔑 Kurucu Adresi : %s\n", con.GetFounderAddress())
-	fmt.Printf("💰 Bakiye        : %.0f DEM\n", chain.GetBalance(con.GetFounderAddress()))
-	fmt.Printf("📦 Max Arz       : %d DEM\n", blockchain.MaxSupply)
-	fmt.Printf("🗄  Veritabanı    : PostgreSQL\n")
+	fmt.Printf("Kurucu Adresi : %s\n", con.GetFounderAddress())
+	fmt.Printf("Bakiye        : %.0f DEM\n", chain.GetBalance(con.GetFounderAddress()))
+	fmt.Printf("Max Arz       : %.0f DEM\n", blockchain.MaxSupply)
+	fmt.Printf("Veritabani    : PostgreSQL\n")
 
 	srv := api.NewServer(chain, hub, con)
 
