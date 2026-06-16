@@ -38,14 +38,16 @@ async function generateWallet() {
 
 async function importWallet() {
   const privKey = document.getElementById('import-privkey').value.trim();
-  if (!privKey) return;
-  const r = await api('/api/admin/imza-olustur', {
+  if (!privKey) { showFloat('Private key boş olamaz', 'err'); return; }
+
+  const r = await api('/api/wallet/import', {
     method: 'POST',
-    body: JSON.stringify({ priv_key: privKey, veri: 'ping' }),
+    body: JSON.stringify({ priv_key: privKey }),
   });
-  if (r.hata) { showFloat('Geçersiz private key', 'err'); return; }
-  const w = await api('/api/wallet/new');
-  showFloat('Cüzdan import için yeni bir cüzdan oluştur ve private key\'ini gir.', 'info');
+
+  if (r.hata) { showFloat('Geçersiz private key: ' + r.hata, 'err'); return; }
+
+  loginWith(privKey, r.address, r.pub_key);
 }
 
 function loginWith(privKey, address, pubKey) {

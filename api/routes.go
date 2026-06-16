@@ -37,6 +37,7 @@ func NewServer(chain *blockchain.Chain, hub *p2p.Hub, con *console.Console) *Ser
 func (s *Server) setupRoutes() {
 	s.router.HandleFunc("/ws", s.handleWS)
 	s.router.HandleFunc("/api/wallet/new", s.handleNewWallet).Methods("GET")
+	s.router.HandleFunc("/api/wallet/import", s.handleImportWallet).Methods("POST")
 	s.router.HandleFunc("/api/wallet/{address}/balance", s.handleBalance).Methods("GET")
 	s.router.HandleFunc("/api/transfer", s.handleTransfer).Methods("POST")
 	s.router.HandleFunc("/api/blocks", s.handleBlocks).Methods("GET")
@@ -70,6 +71,28 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.hub.RegisterClient(conn, address)
+}
+
+func (s *Server) handleImportWallet(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		PrivKey string `json:"priv_key"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonErr(w, "Geçersiz istek", 400)
+		return
+	}
+	priv, err := wallet.HexToPrivKey(req.PrivKey)
+	if err != nil {
+		jsonErr(w, "Geçersiz private key", 400)
+		return
+	}
+	address := wallet.PubKeyToAddress(&priv.PublicKey)
+	pubKey := wallet.PubKeyToHex(&priv.PublicKey)
+	s.chain.GetOrCreateWallet(address)
+	jsonOK(w, map[string]string{
+		"address": address,
+		"pub_key": pubKey,
+	})
 }
 
 func (s *Server) handleNewWallet(w http.ResponseWriter, r *http.Request) {
