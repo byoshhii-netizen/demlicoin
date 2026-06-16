@@ -141,15 +141,22 @@
       <button class="btn-icon" onclick="closeWalletModal()"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div id="wallet-modal-content">
+      <div id="current-wallet-info" style="display:none;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);margin-bottom:12px;">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">BAĞLI CÜZDAN</div>
+        <div id="modal-current-addr" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--green);word-break:break-all;"></div>
+        <button onclick="logoutWallet()" style="margin-top:8px;background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius-sm);padding:6px 12px;font-size:12px;cursor:pointer;width:100%;">
+          <i class="fa-solid fa-right-from-bracket"></i> Cüzdandan Çık
+        </button>
+      </div>
       <button class="btn-primary" onclick="generateWallet()" style="width:100%;margin-bottom:12px;">
         <i class="fa-solid fa-plus"></i> Yeni Cüzdan Oluştur
       </button>
       <div class="divider">veya mevcut ile giriş</div>
-      <div class="form-group">
+      <div class="form-group" style="margin-top:8px;">
         <label>Private Key</label>
         <input class="input-field" id="import-privkey" placeholder="hex formatında..." type="password">
       </div>
-      <button class="btn-outline" onclick="importWallet()" style="width:100%;">
+      <button class="btn-outline" onclick="importWallet()" style="width:100%;margin-top:6px;">
         <i class="fa-solid fa-right-to-bracket"></i> Yükle
       </button>
     </div>

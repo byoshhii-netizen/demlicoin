@@ -12,8 +12,33 @@ async function api(path, opts = {}) {
   return res.json();
 }
 
-function openWalletModal() { document.getElementById('wallet-modal').style.display = 'flex'; }
-function closeWalletModal() { document.getElementById('wallet-modal').style.display = 'none'; }
+function openWalletModal() {
+  const info = document.getElementById('current-wallet-info');
+  const addrEl = document.getElementById('modal-current-addr');
+  if (STATE.wallet) {
+    info.style.display = 'block';
+    addrEl.textContent = STATE.wallet.address;
+  } else {
+    info.style.display = 'none';
+  }
+  document.getElementById('wallet-modal').style.display = 'flex';
+}
+
+function closeWalletModal() {
+  document.getElementById('wallet-modal').style.display = 'none';
+}
+
+function logoutWallet() {
+  STATE.wallet = null;
+  STATE.ws && STATE.ws.close();
+  STATE.ws = null;
+  localStorage.removeItem('dcw');
+  document.getElementById('wallet-address').textContent = 'Bağlı cüzdan yok';
+  document.getElementById('balance-num').textContent = '0';
+  document.getElementById('admin-panel').style.display = 'none';
+  closeWalletModal();
+  showFloat('Cüzdandan çıkıldı', 'info');
+}
 
 async function generateWallet() {
   const data = await api('/api/wallet/new');
