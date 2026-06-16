@@ -7,11 +7,11 @@ import (
 )
 
 const (
-	MaxSupply       = 50_000_000
-	GenesisReward   = 1_000_000
-	BlockGasFee     = 10
-	ChatGasFee      = 1
-	TransferGasFee  = 5
+	MaxSupply      float64 = 50_000_000
+	GenesisReward  float64 = 1_000_000
+	BlockGasFee    float64 = 10
+	ChatGasFee     float64 = 1
+	TransferGasFee float64 = 5
 )
 
 type Transaction struct {

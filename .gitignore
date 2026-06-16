@@ -1,6 +1,5 @@
 founder_wallet.json
 *.env
 .env
-go.sum
 /demcoin
 /demcoin.exe

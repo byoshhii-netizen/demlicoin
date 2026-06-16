@@ -230,7 +230,7 @@ func (h *Hub) handleChat(c *Client, msg *Message) {
 	}
 
 	if err := h.chain.DeductGas(c.Address, blockchain.ChatGasFee); err != nil {
-		errMsg := Message{Type: "ERROR", Payload: fmt.Sprintf("GAS_YETERSIZ: Chat için %.0f DEM gerekli", blockchain.ChatGasFee)}
+		errMsg := Message{Type: "ERROR", Payload: fmt.Sprintf("Chat için %.0f DEM bakiye gerekli", blockchain.ChatGasFee)}
 		data, _ := json.Marshal(errMsg)
 		select {
 		case c.send <- data:

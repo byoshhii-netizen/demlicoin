@@ -2,278 +2,161 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DEM COIN — Layer 1 Blockchain</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #0d0d0d;
-    --green: #00ff66;
-    --gold: #d4af37;
-    --dim-green: #00ff6622;
-    --red: #ff3366;
-    --panel: #111111;
-    --border: #1a1a1a;
-  }
-  body { background: var(--bg); color: var(--green); font-family: 'Share Tech Mono', monospace; overflow: hidden; height: 100vh; }
-  .orbitron { font-family: 'Orbitron', monospace; }
-  ::-webkit-scrollbar { width: 4px; }
-  ::-webkit-scrollbar-track { background: #111; }
-  ::-webkit-scrollbar-thumb { background: var(--green); border-radius: 2px; }
-
-  .scanline {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,102,0.015) 2px, rgba(0,255,102,0.015) 4px);
-    pointer-events: none; z-index: 9999;
-  }
-  .glow { text-shadow: 0 0 10px var(--green), 0 0 20px var(--green); }
-  .gold-glow { text-shadow: 0 0 10px var(--gold), 0 0 20px var(--gold); }
-  .red-glow { text-shadow: 0 0 10px var(--red); }
-
-  .panel {
-    background: var(--panel);
-    border: 1px solid #1f1f1f;
-    border-top: 1px solid var(--green);
-    box-shadow: 0 0 20px rgba(0,255,102,0.05), inset 0 0 40px rgba(0,0,0,0.5);
-  }
-  .panel-gold { border-top-color: var(--gold); box-shadow: 0 0 20px rgba(212,175,55,0.08), inset 0 0 40px rgba(0,0,0,0.5); }
-
-  .btn-green {
-    background: transparent; border: 1px solid var(--green); color: var(--green);
-    padding: 8px 16px; cursor: pointer; font-family: 'Share Tech Mono', monospace;
-    font-size: 12px; transition: all 0.2s; letter-spacing: 1px;
-  }
-  .btn-green:hover { background: var(--green); color: #000; box-shadow: 0 0 20px var(--green); }
-
-  .btn-gold {
-    background: transparent; border: 1px solid var(--gold); color: var(--gold);
-    padding: 8px 16px; cursor: pointer; font-family: 'Share Tech Mono', monospace;
-    font-size: 12px; transition: all 0.2s; letter-spacing: 1px;
-  }
-  .btn-gold:hover { background: var(--gold); color: #000; box-shadow: 0 0 20px var(--gold); }
-
-  .btn-red {
-    background: transparent; border: 1px solid var(--red); color: var(--red);
-    padding: 8px 16px; cursor: pointer; font-family: 'Share Tech Mono', monospace;
-    font-size: 12px; transition: all 0.2s; letter-spacing: 1px;
-  }
-  .btn-red:hover { background: var(--red); color: #000; box-shadow: 0 0 20px var(--red); }
-
-  .input-cyber {
-    background: #0a0a0a; border: 1px solid #222; border-bottom: 1px solid var(--green);
-    color: var(--green); padding: 8px 12px; font-family: 'Share Tech Mono', monospace;
-    font-size: 12px; outline: none; width: 100%; transition: border 0.2s;
-  }
-  .input-cyber:focus { border-bottom-color: var(--gold); box-shadow: 0 2px 10px rgba(212,175,55,0.2); }
-
-  #canvas-chart { display: block; }
-
-  .tx-flash { animation: txFlash 0.5s ease; }
-  @keyframes txFlash { 0% { background: rgba(0,255,102,0.3); } 100% { background: transparent; } }
-
-  .block-card {
-    border-left: 2px solid var(--green);
-    padding: 6px 10px; margin-bottom: 4px;
-    background: rgba(0,255,102,0.03);
-    transition: all 0.3s;
-    font-size: 11px;
-  }
-  .block-card:hover { background: rgba(0,255,102,0.08); border-left-color: var(--gold); }
-
-  .chat-msg { padding: 4px 0; border-bottom: 1px solid #111; font-size: 12px; animation: fadeIn 0.3s ease; }
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-
-  .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; animation: pulse 2s infinite; }
-  .status-live { background: var(--green); box-shadow: 0 0 8px var(--green); }
-  .status-dead { background: var(--red); }
-  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-
-  .alert-banner {
-    position: fixed; top: 0; left: 0; width: 100%;
-    background: var(--red); color: #000; text-align: center;
-    padding: 8px; font-size: 12px; z-index: 10000;
-    font-family: 'Orbitron', monospace; letter-spacing: 2px;
-    animation: slideDown 0.3s ease;
-  }
-  @keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
-
-  .modal-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.9);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 5000;
-  }
-  .modal-box { background: #0d0d0d; border: 1px solid var(--gold); padding: 32px; width: 480px; max-width: 95vw; }
-
-  .hash-ticker {
-    font-size: 10px; color: rgba(0,255,102,0.5);
-    white-space: nowrap; overflow: hidden;
-    animation: ticker 20s linear infinite;
-  }
-  @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-
-  .grid-layout {
-    display: grid;
-    grid-template-columns: 1fr 1fr 320px;
-    grid-template-rows: auto 1fr 200px;
-    gap: 8px;
-    height: calc(100vh - 56px);
-    padding: 8px;
-  }
-  @media (max-width: 1200px) {
-    .grid-layout { grid-template-columns: 1fr 1fr; }
-    .admin-panel { display: none; }
-  }
-</style>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>DemCoin</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<div class="scanline"></div>
-
-<header style="background:#0a0a0a;border-bottom:1px solid #1a1a1a;padding:0 16px;height:56px;display:flex;align-items:center;justify-content:space-between;">
-  <div style="display:flex;align-items:center;gap:16px;">
-    <div class="orbitron glow" style="font-size:20px;font-weight:900;letter-spacing:4px;">DEM<span style="color:var(--gold)">COIN</span></div>
-    <div style="font-size:10px;color:#444;letter-spacing:2px;">LAYER 1 BLOCKCHAIN</div>
+<header class="header">
+  <div class="header-left">
+    <span class="logo">DEM<span class="logo-accent">COIN</span></span>
+    <span class="badge" id="net-badge"><i class="fa-solid fa-circle"></i> CANLI</span>
   </div>
-  <div style="display:flex;align-items:center;gap:16px;font-size:11px;">
-    <div><span class="status-dot status-live" id="net-status-dot"></span> <span id="net-status-text" style="color:var(--green)">CANLI</span></div>
-    <div>Blok: <span id="hdr-block" style="color:var(--gold)">0</span></div>
-    <div>Arz: <span id="hdr-supply" style="color:var(--gold)">0</span> DEM</div>
-    <div>Online: <span id="hdr-online" style="color:var(--green)">0</span></div>
-    <button class="btn-gold" onclick="openWalletModal()" style="font-size:10px;padding:6px 12px;">🔑 CÜZDAN</button>
+  <div class="header-right">
+    <span class="header-stat"><i class="fa-solid fa-cube"></i> <span id="hdr-block">0</span></span>
+    <span class="header-stat"><i class="fa-solid fa-coins"></i> <span id="hdr-supply">0</span></span>
+    <span class="header-stat"><i class="fa-solid fa-users"></i> <span id="hdr-online">0</span></span>
+    <button class="btn-icon" onclick="openWalletModal()" title="Cüzdan"><i class="fa-solid fa-wallet"></i></button>
   </div>
 </header>
 
-<div class="hash-ticker" style="background:#080808;padding:4px 0;border-bottom:1px solid #111;">
-  <span id="hash-ticker-content"></span>
-</div>
-
-<div class="grid-layout">
-
-  <div class="panel" style="grid-column:1/3;grid-row:1/2;padding:12px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-      <div class="orbitron" style="font-size:11px;letter-spacing:2px;color:var(--gold);">◈ CANLI AĞ GRAFİĞİ</div>
-      <div style="font-size:10px;color:#333;">Son 60 blok işlem akışı</div>
-    </div>
-    <canvas id="canvas-chart" width="100%" height="80" style="width:100%;height:80px;"></canvas>
-  </div>
-
-  <div class="panel" style="grid-column:1/2;grid-row:2/3;display:flex;flex-direction:column;overflow:hidden;">
-    <div style="padding:10px 12px;border-bottom:1px solid #1a1a1a;display:flex;align-items:center;justify-content:space-between;">
-      <div class="orbitron" style="font-size:10px;letter-spacing:2px;color:var(--green);">◈ BLOK ZİNCİR</div>
-      <div id="block-count" style="font-size:10px;color:#333;">0 blok</div>
-    </div>
-    <div id="block-list" style="flex:1;overflow-y:auto;padding:8px;"></div>
-  </div>
-
-  <div class="panel" style="grid-column:2/3;grid-row:2/3;display:flex;flex-direction:column;overflow:hidden;">
-    <div style="padding:10px 12px;border-bottom:1px solid #1a1a1a;">
-      <div class="orbitron" style="font-size:10px;letter-spacing:2px;color:var(--gold);">◈ CÜZDAN & TRANSFER</div>
-    </div>
-    <div style="padding:12px;flex:1;overflow-y:auto;">
-      <div style="margin-bottom:16px;">
-        <div style="font-size:10px;color:#444;margin-bottom:4px;">BAĞLI CÜZDAN</div>
-        <div id="wallet-address" style="font-size:11px;color:var(--gold);word-break:break-all;">— bağlanmadı —</div>
-        <div style="margin-top:6px;font-size:18px;" id="wallet-balance-display">
-          <span style="color:var(--green);" id="balance-num">0</span>
-          <span style="color:var(--gold);font-size:12px;margin-left:4px;">DEM</span>
-        </div>
-      </div>
-      <div style="border-top:1px solid #1a1a1a;padding-top:12px;">
-        <div style="font-size:10px;color:#444;margin-bottom:8px;letter-spacing:1px;">TRANSFER</div>
-        <input class="input-cyber" id="to-address" placeholder="Hedef Adres (DEM...)" style="margin-bottom:6px;">
-        <input class="input-cyber" id="transfer-amount" type="number" placeholder="Miktar (DEM)" style="margin-bottom:8px;">
-        <div style="font-size:10px;color:#333;margin-bottom:8px;">Gas: <span style="color:var(--gold)">5 DEM</span></div>
-        <button class="btn-green" onclick="doTransfer()" style="width:100%;">⚡ TRANSFER GÖNDER</button>
-      </div>
-      <div id="transfer-result" style="margin-top:8px;font-size:11px;"></div>
-    </div>
-  </div>
-
-  <div class="panel panel-gold admin-panel" id="admin-panel" style="grid-column:3/4;grid-row:1/3;display:flex;flex-direction:column;overflow:hidden;display:none;">
-    <div style="padding:10px 12px;border-bottom:1px solid #1a1a1a;">
-      <div class="orbitron gold-glow" style="font-size:10px;letter-spacing:2px;color:var(--gold);">◈ YÖNETİM KONSOLU</div>
-      <div style="font-size:10px;color:#333;margin-top:2px;">KURUCU YETKİSİ AKTİF</div>
-    </div>
-    <div style="padding:12px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;">
-      <div style="font-size:10px;color:#444;margin-bottom:4px;letter-spacing:1px;">NETWORK KOMUTLARı</div>
-
-      <button class="btn-red" onclick="adminCmd('kilitle')" style="width:100%;font-size:11px;padding:10px;">
-        🔒 AĞI KİLİTLE
-      </button>
-      <button class="btn-green" onclick="adminCmd('ac')" style="width:100%;font-size:11px;padding:10px;">
-        🔓 AĞI AÇ
-      </button>
-      <button class="btn-gold" onclick="adminCmd('arz')" style="width:100%;font-size:11px;padding:10px;">
-        🔐 ARZ SABİTLE (50M)
-      </button>
-
-      <div style="border-top:1px solid #1a1a1a;margin:4px 0;"></div>
-      <div style="font-size:10px;color:#444;margin-bottom:4px;letter-spacing:1px;">CÜZDAN KONTROLÜ</div>
-
-      <input class="input-cyber" id="ban-address" placeholder="Yasaklanacak adres..." style="margin-bottom:4px;">
-      <button class="btn-red" onclick="adminCmd('yasakla')" style="width:100%;font-size:11px;padding:8px;">
-        ⛔ CÜZDAN YASAKLA
-      </button>
-
-      <div style="border-top:1px solid #1a1a1a;margin:4px 0;"></div>
-      <div style="font-size:10px;color:#444;margin-bottom:4px;letter-spacing:1px;">TOKEN BASIMI</div>
-
-      <input class="input-cyber" id="mint-address" placeholder="Hedef adres..." style="margin-bottom:4px;">
-      <input class="input-cyber" id="mint-amount" type="number" placeholder="Miktar..." style="margin-bottom:4px;">
-      <button class="btn-gold" onclick="adminCmd('mint')" style="width:100%;font-size:11px;padding:8px;">
-        💎 TOKEN BAS
-      </button>
-
-      <div id="admin-result" style="font-size:11px;margin-top:8px;padding:8px;background:#0a0a0a;border:1px solid #1a1a1a;min-height:40px;"></div>
-    </div>
-  </div>
-
-  <div class="panel" style="grid-column:1/3;grid-row:3/4;display:flex;flex-direction:column;overflow:hidden;">
-    <div style="padding:8px 12px;border-bottom:1px solid #1a1a1a;display:flex;align-items:center;justify-content:space-between;">
-      <div class="orbitron" style="font-size:10px;letter-spacing:2px;color:var(--green);">◈ ON-CHAIN CHAT</div>
-      <div style="font-size:10px;color:#333;">Anonim • Gas: 1 DEM/mesaj</div>
-    </div>
-    <div id="chat-messages" style="flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:2px;"></div>
-    <div style="padding:8px;border-top:1px solid #1a1a1a;display:flex;gap:8px;">
-      <input class="input-cyber" id="chat-input" placeholder="Mesajını yaz... (1 DEM gas ücreti)" style="flex:1;" maxlength="500" onkeydown="if(event.key==='Enter')sendChat()">
-      <button class="btn-green" onclick="sendChat()" style="white-space:nowrap;">⚡ GÖNDER</button>
-    </div>
-  </div>
-
-  <div class="panel panel-gold" style="grid-column:3/4;grid-row:3/4;display:flex;flex-direction:column;overflow:hidden;">
-    <div style="padding:8px 12px;border-bottom:1px solid #1a1a1a;">
-      <div class="orbitron" style="font-size:10px;letter-spacing:2px;color:var(--gold);">◈ NETWORK İSTATİSTİK</div>
-    </div>
-    <div style="padding:12px;font-size:11px;display:flex;flex-direction:column;gap:6px;">
-      <div style="display:flex;justify-content:space-between;"><span style="color:#444;">Toplam Blok</span><span id="stat-blocks" style="color:var(--green);">0</span></div>
-      <div style="display:flex;justify-content:space-between;"><span style="color:#444;">Dolaşımdaki Arz</span><span id="stat-supply" style="color:var(--gold);">0 DEM</span></div>
-      <div style="display:flex;justify-content:space-between;"><span style="color:#444;">Max Arz</span><span style="color:#333;">50,000,000 DEM</span></div>
-      <div style="display:flex;justify-content:space-between;"><span style="color:#444;">Online Kullanıcı</span><span id="stat-online" style="color:var(--green);">0</span></div>
-      <div style="display:flex;justify-content:space-between;"><span style="color:#444;">Ağ Durumu</span><span id="stat-locked" style="color:var(--green);">AKTİF</span></div>
-      <div style="display:flex;justify-content:space-between;"><span style="color:#444;">Gas (Chat)</span><span style="color:var(--gold);">1 DEM</span></div>
-      <div style="display:flex;justify-content:space-between;"><span style="color:#444;">Gas (Transfer)</span><span style="color:var(--gold);">5 DEM</span></div>
-    </div>
+<div class="ticker-bar">
+  <div class="ticker-inner" id="ticker-inner">
+    <span id="ticker-text">— ağ bekleniyor —</span>
   </div>
 </div>
+
+<main class="main-grid">
+
+  <section class="card card-chart">
+    <div class="card-header">
+      <span><i class="fa-solid fa-chart-line"></i> Ağ Aktivitesi</span>
+      <span class="card-sub">Son 60 blok</span>
+    </div>
+    <canvas id="canvas-chart"></canvas>
+  </section>
+
+  <section class="card card-blocks">
+    <div class="card-header">
+      <span><i class="fa-solid fa-layer-group"></i> Blok Zinciri</span>
+      <span class="card-sub" id="block-count">0 blok</span>
+    </div>
+    <div class="list-scroll" id="block-list"></div>
+  </section>
+
+  <section class="card card-wallet">
+    <div class="card-header">
+      <span><i class="fa-solid fa-wallet"></i> Cüzdan</span>
+    </div>
+    <div class="wallet-body">
+      <div class="wallet-address" id="wallet-address">Bağlı cüzdan yok</div>
+      <div class="wallet-balance">
+        <span id="balance-num">0</span>
+        <span class="balance-unit">DEM</span>
+      </div>
+      <div class="form-group">
+        <label>Hedef Adres</label>
+        <input class="input-field" id="to-address" placeholder="DEM...">
+      </div>
+      <div class="form-group">
+        <label>Miktar</label>
+        <input class="input-field" id="transfer-amount" type="number" placeholder="0.00">
+        <span class="input-hint">+ 5 DEM gas ücreti</span>
+      </div>
+      <button class="btn-primary" onclick="doTransfer()">
+        <i class="fa-solid fa-paper-plane"></i> Transfer Gönder
+      </button>
+      <div id="transfer-result" class="result-msg"></div>
+    </div>
+  </section>
+
+  <section class="card card-chat">
+    <div class="card-header">
+      <span><i class="fa-solid fa-comments"></i> On-Chain Chat</span>
+      <span class="card-sub">1 DEM / mesaj</span>
+    </div>
+    <div class="chat-messages" id="chat-messages"></div>
+    <div class="chat-input-bar">
+      <input class="input-field" id="chat-input" placeholder="Mesaj yaz..." maxlength="500"
+        onkeydown="if(event.key==='Enter')sendChat()">
+      <button class="btn-send" onclick="sendChat()"><i class="fa-solid fa-arrow-up"></i></button>
+    </div>
+  </section>
+
+  <section class="card card-stats">
+    <div class="card-header">
+      <span><i class="fa-solid fa-chart-pie"></i> İstatistik</span>
+    </div>
+    <div class="stats-list">
+      <div class="stat-row"><span>Toplam Blok</span><span id="stat-blocks" class="stat-val">0</span></div>
+      <div class="stat-row"><span>Dolaşım</span><span id="stat-supply" class="stat-val">0 DEM</span></div>
+      <div class="stat-row"><span>Max Arz</span><span class="stat-val muted">50,000,000 DEM</span></div>
+      <div class="stat-row"><span>Online</span><span id="stat-online" class="stat-val">0</span></div>
+      <div class="stat-row"><span>Ağ</span><span id="stat-locked" class="stat-val green">Aktif</span></div>
+      <div class="stat-row"><span>Chat Gas</span><span class="stat-val muted">1 DEM</span></div>
+      <div class="stat-row"><span>Transfer Gas</span><span class="stat-val muted">5 DEM</span></div>
+    </div>
+  </section>
+
+  <section class="card card-admin" id="admin-panel" style="display:none;">
+    <div class="card-header">
+      <span><i class="fa-solid fa-shield-halved"></i> Yönetim</span>
+      <span class="card-sub gold">Kurucu</span>
+    </div>
+    <div class="admin-body">
+      <div class="admin-section-title">Ağ Kontrolü</div>
+      <button class="btn-danger" onclick="adminCmd('kilitle')">
+        <i class="fa-solid fa-lock"></i> Ağı Kilitle
+      </button>
+      <button class="btn-success" onclick="adminCmd('ac')">
+        <i class="fa-solid fa-lock-open"></i> Ağı Aç
+      </button>
+      <button class="btn-gold" onclick="adminCmd('arz')">
+        <i class="fa-solid fa-shield"></i> Arzı Sabitle (50M)
+      </button>
+      <div class="admin-section-title" style="margin-top:16px;">Cüzdan Kontrolü</div>
+      <input class="input-field" id="ban-address" placeholder="Yasaklanacak adres...">
+      <button class="btn-danger" onclick="adminCmd('yasakla')" style="margin-top:6px;">
+        <i class="fa-solid fa-ban"></i> Cüzdan Yasakla
+      </button>
+      <div class="admin-section-title" style="margin-top:16px;">Token Basımı</div>
+      <input class="input-field" id="mint-address" placeholder="Hedef adres...">
+      <input class="input-field" id="mint-amount" type="number" placeholder="Miktar..." style="margin-top:6px;">
+      <button class="btn-gold" onclick="adminCmd('mint')" style="margin-top:6px;">
+        <i class="fa-solid fa-coins"></i> Token Bas
+      </button>
+      <div id="admin-result" class="result-msg" style="margin-top:10px;"></div>
+    </div>
+  </section>
+
+</main>
 
 <div id="wallet-modal" class="modal-overlay" style="display:none;">
   <div class="modal-box">
-    <div class="orbitron gold-glow" style="font-size:14px;letter-spacing:3px;color:var(--gold);margin-bottom:20px;">◈ CÜZDAN YÖNETİMİ</div>
-    <div id="wallet-modal-content">
-      <div style="display:flex;flex-direction:column;gap:8px;">
-        <button class="btn-gold" onclick="generateWallet()" style="width:100%;padding:12px;">🆕 YENİ CÜZDAN OLUŞTUR</button>
-        <div style="text-align:center;color:#333;font-size:11px;">— VEYA —</div>
-        <div style="font-size:10px;color:#444;margin-bottom:4px;">MEVCUT CÜZDAN İLE GİRİŞ</div>
-        <input class="input-cyber" id="import-privkey" placeholder="Private Key (hex)..." style="margin-bottom:4px;">
-        <button class="btn-green" onclick="importWallet()" style="width:100%;padding:12px;">🔑 CÜZDAN YÜKLECürret</button>
-      </div>
+    <div class="modal-header">
+      <span><i class="fa-solid fa-wallet"></i> Cüzdan</span>
+      <button class="btn-icon" onclick="closeWalletModal()"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <button onclick="closeWalletModal()" style="background:none;border:none;color:#333;cursor:pointer;font-size:11px;margin-top:16px;">[ KAPAT ]</button>
+    <div id="wallet-modal-content">
+      <button class="btn-primary" onclick="generateWallet()" style="width:100%;margin-bottom:12px;">
+        <i class="fa-solid fa-plus"></i> Yeni Cüzdan Oluştur
+      </button>
+      <div class="divider">veya mevcut ile giriş</div>
+      <div class="form-group">
+        <label>Private Key</label>
+        <input class="input-field" id="import-privkey" placeholder="hex formatında..." type="password">
+      </div>
+      <button class="btn-outline" onclick="importWallet()" style="width:100%;">
+        <i class="fa-solid fa-right-to-bracket"></i> Yükle
+      </button>
+    </div>
   </div>
 </div>
+
+<div id="float-msg" class="float-msg" style="display:none;"></div>
 
 <script src="app.js"></script>
 </body>

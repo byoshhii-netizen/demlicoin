@@ -1,219 +1,170 @@
 const STATE = {
   wallet: null,
   ws: null,
-  isAdmin: false,
-  networkLocked: false,
-  blockHistory: [],
   chartData: Array(60).fill(0),
   reconnectTimer: null,
 };
 
-const API = window.location.origin;
-const WS_URL = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws';
+const WS_URL = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws';
 
-async function apiFetch(path, opts = {}) {
-  const res = await fetch(API + path, {
-    headers: { 'Content-Type': 'application/json' },
-    ...opts,
-  });
+async function api(path, opts = {}) {
+  const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts });
   return res.json();
 }
 
-function openWalletModal() {
-  document.getElementById('wallet-modal').style.display = 'flex';
-}
-function closeWalletModal() {
-  document.getElementById('wallet-modal').style.display = 'none';
-}
+function openWalletModal() { document.getElementById('wallet-modal').style.display = 'flex'; }
+function closeWalletModal() { document.getElementById('wallet-modal').style.display = 'none'; }
 
 async function generateWallet() {
-  const data = await apiFetch('/api/wallet/new');
-  const content = document.getElementById('wallet-modal-content');
-  content.innerHTML = `
-    <div style="font-size:10px;color:#444;margin-bottom:8px;">YENİ CÜZDAN OLUŞTURULDU</div>
-    <div style="margin-bottom:8px;">
-      <div style="font-size:10px;color:var(--gold);margin-bottom:2px;">ADRES</div>
-      <div style="font-size:11px;word-break:break-all;color:var(--green);">${data.address}</div>
+  const data = await api('/api/wallet/new');
+  const el = document.getElementById('wallet-modal-content');
+  el.innerHTML = `
+    <div class="wallet-new-result">
+      <div>
+        <div class="key-label">ADRES</div>
+        <div class="key-value">${data.address}</div>
+      </div>
+      <div>
+        <div class="key-label">PRIVATE KEY <span class="key-warn">(gizli tut!)</span></div>
+        <div class="key-value">${data.priv_key}</div>
+      </div>
     </div>
-    <div style="margin-bottom:8px;">
-      <div style="font-size:10px;color:var(--gold);margin-bottom:2px;">PRIVATE KEY <span style="color:#f00;">(GİZLİ TUTUN!)</span></div>
-      <div style="font-size:10px;word-break:break-all;color:#666;">${data.priv_key}</div>
-    </div>
-    <div style="background:#0a0a0a;border:1px solid #ff3366;padding:8px;font-size:10px;color:#ff3366;margin-bottom:12px;">
-      ⚠️ Private key'inizi güvenli bir yerde saklayın. Kayıp durumunda cüzdanınıza erişim imkansızdır.
-    </div>
-    <button class="btn-gold" onclick="loginWithKey('${data.priv_key}','${data.address}','${data.pub_key}')" style="width:100%;padding:12px;">🚀 BU CÜZDANLA GİRİŞ YAP</button>
+    <p style="font-size:11px;color:var(--red);text-align:center;">Private key'ini kaybet = cüzdanını kaybet.</p>
+    <button class="btn-primary" style="width:100%;" onclick="loginWith('${data.priv_key}','${data.address}','${data.pub_key}')">
+      <i class="fa-solid fa-right-to-bracket"></i> Bu Cüzdanla Giriş Yap
+    </button>
   `;
 }
 
 async function importWallet() {
   const privKey = document.getElementById('import-privkey').value.trim();
   if (!privKey) return;
-  const imzaData = await apiFetch('/api/admin/imza-olustur', {
+  const r = await api('/api/admin/imza-olustur', {
     method: 'POST',
-    body: JSON.stringify({ priv_key: privKey, veri: 'login' }),
+    body: JSON.stringify({ priv_key: privKey, veri: 'ping' }),
   });
-  if (imzaData.hata) {
-    showMsg('import-error', '❌ Geçersiz private key', 'red');
-    return;
-  }
-  const pubKeyRes = await apiFetch('/api/wallet/new');
-  alert('Private key doğrulama başarısız olabilir. Yeni cüzdan oluşturmanız önerilir.');
+  if (r.hata) { showFloat('Geçersiz private key', 'err'); return; }
+  const w = await api('/api/wallet/new');
+  showFloat('Cüzdan import için yeni bir cüzdan oluştur ve private key\'ini gir.', 'info');
 }
 
-function loginWithKey(privKey, address, pubKey) {
+function loginWith(privKey, address, pubKey) {
   STATE.wallet = { privKey, address, pubKey };
-  localStorage.setItem('demcoin_wallet', JSON.stringify(STATE.wallet));
+  localStorage.setItem('dcw', JSON.stringify(STATE.wallet));
   document.getElementById('wallet-address').textContent = address;
   closeWalletModal();
   connectWS();
-  checkAdminStatus(address);
   refreshBalance();
+  checkAdmin(address);
 }
 
-async function checkAdminStatus(address) {
-  const state = await apiFetch('/api/state');
-  const founderAddr = state.founder_address;
-  if (founderAddr && founderAddr === address) {
-    STATE.isAdmin = true;
-    const panel = document.getElementById('admin-panel');
-    panel.style.display = 'flex';
-    document.querySelector('.grid-layout').style.gridTemplateColumns = '1fr 1fr 320px';
+async function checkAdmin(address) {
+  const s = await api('/api/state');
+  if (s.founder_address && s.founder_address === address) {
+    document.getElementById('admin-panel').style.display = 'block';
   }
 }
 
 async function refreshBalance() {
   if (!STATE.wallet) return;
-  const data = await apiFetch('/api/wallet/' + STATE.wallet.address + '/balance');
-  document.getElementById('balance-num').textContent = parseFloat(data.balance).toLocaleString('tr-TR', { maximumFractionDigits: 2 });
-  if (data.blacklisted) {
-    showAlert('CÜZDANINIZ YASAKLANDI');
-  }
+  const d = await api('/api/wallet/' + STATE.wallet.address + '/balance');
+  document.getElementById('balance-num').textContent =
+    parseFloat(d.balance || 0).toLocaleString('tr-TR', { maximumFractionDigits: 2 });
 }
 
 function connectWS() {
   if (!STATE.wallet) return;
   if (STATE.ws && STATE.ws.readyState < 2) STATE.ws.close();
-
-  const url = WS_URL + '?address=' + encodeURIComponent(STATE.wallet.address);
-  STATE.ws = new WebSocket(url);
-
-  STATE.ws.onopen = () => {
-    setNetStatus(true);
-    clearTimeout(STATE.reconnectTimer);
-  };
-
-  STATE.ws.onmessage = (e) => {
-    const msg = JSON.parse(e.data);
-    handleWSMessage(msg);
-  };
-
-  STATE.ws.onclose = () => {
-    setNetStatus(false);
-    STATE.reconnectTimer = setTimeout(connectWS, 3000);
-  };
-
-  STATE.ws.onerror = () => {
-    setNetStatus(false);
-  };
+  STATE.ws = new WebSocket(WS_URL + '?address=' + encodeURIComponent(STATE.wallet.address));
+  STATE.ws.onopen = () => { setNetStatus(true); clearTimeout(STATE.reconnectTimer); };
+  STATE.ws.onmessage = e => handleMsg(JSON.parse(e.data));
+  STATE.ws.onclose = () => { setNetStatus(false); STATE.reconnectTimer = setTimeout(connectWS, 3000); };
 }
 
-function handleWSMessage(msg) {
-  switch (msg.type) {
-    case 'NEW_BLOCK':
-      addBlock(msg.payload);
-      updateChart(msg.payload.transactions ? msg.payload.transactions.length : 0);
-      updateTickerHash(msg.payload.hash);
-      refreshBalance();
-      break;
-    case 'CHAT':
-      appendChat(msg.payload);
-      break;
-    case 'STATE':
-      updateNetworkState(msg.payload);
-      break;
-    case 'ALERT':
-      handleNetworkAlert(msg.payload);
-      break;
-    case 'ERROR':
-      showFloatMsg(msg.payload, 'red');
-      break;
-    case 'PONG':
-      break;
+function handleMsg(msg) {
+  if (msg.type === 'NEW_BLOCK') {
+    addBlock(msg.payload);
+    updateChart(msg.payload.transactions ? msg.payload.transactions.length : 1);
+    addTicker(msg.payload.hash);
+    refreshBalance();
+  } else if (msg.type === 'CHAT') {
+    appendChat(msg.payload);
+  } else if (msg.type === 'STATE') {
+    if (msg.payload.balance !== undefined)
+      document.getElementById('balance-num').textContent =
+        parseFloat(msg.payload.balance).toLocaleString('tr-TR', { maximumFractionDigits: 2 });
+    if (msg.payload.network) updateStats(msg.payload.network);
+  } else if (msg.type === 'ALERT') {
+    handleAlert(msg.payload.event);
+  } else if (msg.type === 'ERROR') {
+    showFloat(msg.payload, 'err');
   }
 }
 
-function addBlock(block) {
-  STATE.blockHistory.unshift(block);
-  if (STATE.blockHistory.length > 100) STATE.blockHistory.pop();
-
+function addBlock(b) {
   const list = document.getElementById('block-list');
-  const div = document.createElement('div');
-  div.className = 'block-card tx-flash';
-  const short = block.hash ? block.hash.slice(0, 16) + '...' : '???';
-  const txCount = block.transactions ? block.transactions.length : 0;
-  div.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;">
-      <span style="color:var(--gold);">#${block.index}</span>
-      <span style="color:#333;font-size:10px;">${new Date(block.timestamp).toLocaleTimeString('tr-TR')}</span>
+  const d = document.createElement('div');
+  d.className = 'block-item';
+  const hash = b.hash ? b.hash.slice(0, 18) + '...' : '—';
+  const t = new Date(b.timestamp).toLocaleTimeString('tr-TR');
+  const txc = b.transactions ? b.transactions.length : 0;
+  d.innerHTML = `
+    <div class="block-item-top">
+      <span class="block-num">#${b.index}</span>
+      <span class="block-time">${t}</span>
     </div>
-    <div style="color:var(--green);font-size:10px;margin-top:2px;">${short}</div>
-    <div style="color:#444;font-size:10px;">${txCount} işlem</div>
+    <div class="block-hash">${hash}</div>
+    <div class="block-txs">${txc} işlem</div>
   `;
-  list.insertBefore(div, list.firstChild);
-  document.getElementById('block-count').textContent = STATE.blockHistory.length + ' blok';
-  document.getElementById('hdr-block').textContent = block.index;
-  document.getElementById('stat-blocks').textContent = block.index;
+  list.insertBefore(d, list.firstChild);
+  document.getElementById('block-count').textContent = list.children.length + ' blok';
+  document.getElementById('hdr-block').textContent = b.index;
+  document.getElementById('stat-blocks').textContent = b.index;
 }
 
 function appendChat(cm) {
-  const container = document.getElementById('chat-messages');
-  const div = document.createElement('div');
-  div.className = 'chat-msg';
-  const t = new Date(cm.timestamp);
-  const ts = t.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const box = document.getElementById('chat-messages');
   const isMe = STATE.wallet && cm.from === STATE.wallet.address;
-  div.innerHTML = `
-    <span style="color:var(--gold);">[${ts}]</span>
-    <span style="color:${isMe ? '#00ff66' : '#888'};margin:0 6px;">${cm.username}</span>
-    <span style="color:rgba(0,255,102,0.8);">${escapeHtml(cm.content)}</span>
-    <span style="color:#222;font-size:9px;margin-left:6px;">${cm.tx_hash || ''}</span>
+  const t = new Date(cm.timestamp).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const d = document.createElement('div');
+  d.className = 'chat-msg';
+  d.innerHTML = `
+    <div class="chat-msg-top">
+      <span class="chat-ts">${t}</span>
+      <span class="chat-user${isMe ? ' me' : ''}">${cm.username}</span>
+    </div>
+    <div class="chat-text">${esc(cm.content)}</div>
   `;
-  container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
+  box.appendChild(d);
+  box.scrollTop = box.scrollHeight;
 }
 
-function updateNetworkState(payload) {
-  if (payload.network) {
-    STATE.networkLocked = payload.network.locked;
-    document.getElementById('stat-locked').textContent = payload.network.locked ? '🔒 KİLİTLİ' : 'AKTİF';
-    document.getElementById('stat-locked').style.color = payload.network.locked ? 'var(--red)' : 'var(--green)';
-    const supply = parseFloat(payload.network.total_supply || 0).toLocaleString('tr-TR');
-    document.getElementById('stat-supply').textContent = supply + ' DEM';
-    document.getElementById('hdr-supply').textContent = supply;
-    document.getElementById('stat-blocks').textContent = payload.network.block_height || 0;
-    document.getElementById('hdr-block').textContent = payload.network.block_height || 0;
-  }
-  if (payload.balance !== undefined) {
-    document.getElementById('balance-num').textContent = parseFloat(payload.balance).toLocaleString('tr-TR', { maximumFractionDigits: 2 });
-  }
+function updateStats(net) {
+  const locked = net.locked;
+  const el = document.getElementById('stat-locked');
+  el.textContent = locked ? 'Kilitli' : 'Aktif';
+  el.className = 'stat-val ' + (locked ? 'red' : 'green');
+  const badge = document.getElementById('net-badge');
+  badge.className = 'badge' + (locked ? ' locked' : '');
+  badge.innerHTML = locked
+    ? '<i class="fa-solid fa-circle"></i> KİLİTLİ'
+    : '<i class="fa-solid fa-circle"></i> CANLI';
+  const supply = parseFloat(net.total_supply || 0).toLocaleString('tr-TR');
+  document.getElementById('stat-supply').textContent = supply + ' DEM';
+  document.getElementById('hdr-supply').textContent = supply;
 }
 
-function handleNetworkAlert(payload) {
-  const event = payload.event || '';
-  if (event === 'AG_KILITLANDI') {
-    showAlert('🔒 AĞ KİLİTLENDİ — Tüm işlemler durduruldu');
-    document.getElementById('stat-locked').textContent = '🔒 KİLİTLİ';
-    document.getElementById('stat-locked').style.color = 'var(--red)';
-    setNetStatus(false, true);
-  } else if (event === 'AG_ACILDI') {
-    showAlert('🔓 AĞ AÇILDI — İşlemler devam ediyor', 'green');
-    document.getElementById('stat-locked').textContent = 'AKTİF';
-    document.getElementById('stat-locked').style.color = 'var(--green)';
-  } else if (event.startsWith('CUZDAN_YASAKLANDI')) {
-    showFloatMsg('⛔ Cüzdan yasaklandı: ' + event.split(':')[1], 'red');
-  } else if (event === 'ARZ_SABITLENDI') {
-    showFloatMsg('🔐 Token arzı 50.000.000 DEM\'de sabitlendi', 'gold');
+function handleAlert(ev) {
+  if (ev === 'AG_KILITLANDI') {
+    showFloat('Ag kilitlendi — islemler durduruldu', 'err');
+    updateStats({ locked: true, total_supply: 0 });
+  } else if (ev === 'AG_ACILDI') {
+    showFloat('Ag kilidi acildi', 'ok');
+    updateStats({ locked: false, total_supply: 0 });
+  } else if (ev && ev.startsWith('CUZDAN_YASAKLANDI')) {
+    showFloat('Cuzdan yasaklandi', 'err');
+  } else if (ev === 'ARZ_SABITLENDI') {
+    showFloat('Arz 50.000.000 DEM olarak sabitlendi', 'info');
   }
 }
 
@@ -222,36 +173,21 @@ async function doTransfer() {
   const to = document.getElementById('to-address').value.trim();
   const amount = parseFloat(document.getElementById('transfer-amount').value);
   if (!to || isNaN(amount) || amount <= 0) {
-    showMsg('transfer-result', '❌ Geçersiz transfer bilgisi', 'red');
-    return;
+    setResult('transfer-result', 'Geçersiz bilgi', 'err'); return;
   }
-
   const sigData = STATE.wallet.address + to + amount.toFixed(8);
-  const imzaRes = await apiFetch('/api/admin/imza-olustur', {
-    method: 'POST',
-    body: JSON.stringify({ priv_key: STATE.wallet.privKey, veri: sigData }),
+  const ir = await api('/api/admin/imza-olustur', {
+    method: 'POST', body: JSON.stringify({ priv_key: STATE.wallet.privKey, veri: sigData }),
   });
-
-  if (imzaRes.hata) {
-    showMsg('transfer-result', '❌ İmza hatası: ' + imzaRes.hata, 'red');
-    return;
-  }
-
-  const res = await apiFetch('/api/transfer', {
+  if (ir.hata) { setResult('transfer-result', 'İmza hatası', 'err'); return; }
+  const r = await api('/api/transfer', {
     method: 'POST',
-    body: JSON.stringify({
-      from: STATE.wallet.address,
-      to: to,
-      amount: amount,
-      signature: imzaRes.imza,
-      pub_key: STATE.wallet.pubKey,
-    }),
+    body: JSON.stringify({ from: STATE.wallet.address, to, amount, signature: ir.imza, pub_key: STATE.wallet.pubKey }),
   });
-
-  if (res.hata) {
-    showMsg('transfer-result', '❌ ' + res.hata, 'red');
+  if (r.hata) {
+    setResult('transfer-result', r.hata, 'err');
   } else {
-    showMsg('transfer-result', '✅ Transfer başarılı! TX: ' + res.tx_hash, 'green');
+    setResult('transfer-result', 'Transfer tamam — ' + r.tx_hash, 'ok');
     document.getElementById('to-address').value = '';
     document.getElementById('transfer-amount').value = '';
     refreshBalance();
@@ -260,237 +196,178 @@ async function doTransfer() {
 
 function sendChat() {
   if (!STATE.wallet) { openWalletModal(); return; }
-  if (!STATE.ws || STATE.ws.readyState !== 1) {
-    showFloatMsg('❌ WebSocket bağlantısı yok', 'red');
-    return;
-  }
-  const content = document.getElementById('chat-input').value.trim();
+  if (!STATE.ws || STATE.ws.readyState !== 1) { showFloat('Bağlantı yok', 'err'); return; }
+  const input = document.getElementById('chat-input');
+  const content = input.value.trim();
   if (!content) return;
   STATE.ws.send(JSON.stringify({ type: 'CHAT', payload: { content } }));
-  document.getElementById('chat-input').value = '';
+  input.value = '';
 }
 
 async function adminCmd(cmd) {
   if (!STATE.wallet) return;
+  let veri, endpoint, extra = {};
 
-  let veri, endpoint, body;
-
-  if (cmd === 'kilitle') {
-    veri = 'AgiKilitle';
-    endpoint = '/api/admin/kilitle';
-  } else if (cmd === 'ac') {
-    veri = 'AgiAc';
-    endpoint = '/api/admin/ac';
-  } else if (cmd === 'arz') {
-    if (!confirm('Arzı sabitlemek geri alınamaz. Emin misiniz?')) return;
-    veri = 'ArzSabitle';
-    endpoint = '/api/admin/arz-sabitle';
+  if (cmd === 'kilitle') { veri = 'AgiKilitle'; endpoint = '/api/admin/kilitle'; }
+  else if (cmd === 'ac') { veri = 'AgiAc'; endpoint = '/api/admin/ac'; }
+  else if (cmd === 'arz') {
+    if (!confirm('Arzı sabitlemek geri alınamaz. Devam edilsin mi?')) return;
+    veri = 'ArzSabitle'; endpoint = '/api/admin/arz-sabitle';
   } else if (cmd === 'yasakla') {
     const adres = document.getElementById('ban-address').value.trim();
-    if (!adres) { showMsg('admin-result', '❌ Adres boş olamaz', 'red'); return; }
-    veri = 'CuzdanYasakla:' + adres;
-    endpoint = '/api/admin/yasakla';
-    body = { adres };
+    if (!adres) { setResult('admin-result', 'Adres boş', 'err'); return; }
+    veri = 'CuzdanYasakla:' + adres; endpoint = '/api/admin/yasakla'; extra = { adres };
   } else if (cmd === 'mint') {
     const adres = document.getElementById('mint-address').value.trim();
     const miktar = parseFloat(document.getElementById('mint-amount').value);
-    if (!adres || isNaN(miktar)) { showMsg('admin-result', '❌ Geçersiz bilgi', 'red'); return; }
-    veri = 'TokenBas:' + adres;
-    endpoint = '/api/admin/token-bas';
-    body = { adres, miktar };
+    if (!adres || isNaN(miktar)) { setResult('admin-result', 'Geçersiz bilgi', 'err'); return; }
+    veri = 'TokenBas:' + adres; endpoint = '/api/admin/token-bas'; extra = { adres, miktar };
   }
 
-  const imzaRes = await apiFetch('/api/admin/imza-olustur', {
-    method: 'POST',
-    body: JSON.stringify({ priv_key: STATE.wallet.privKey, veri }),
+  const ir = await api('/api/admin/imza-olustur', {
+    method: 'POST', body: JSON.stringify({ priv_key: STATE.wallet.privKey, veri }),
   });
+  if (ir.hata) { setResult('admin-result', 'İmza hatası', 'err'); return; }
 
-  if (imzaRes.hata) { showMsg('admin-result', '❌ İmza hatası', 'red'); return; }
-
-  const res = await apiFetch(endpoint, {
-    method: 'POST',
-    body: JSON.stringify({ imza: imzaRes.imza, ...body }),
+  const r = await api(endpoint, {
+    method: 'POST', body: JSON.stringify({ imza: ir.imza, ...extra }),
   });
-
-  if (res.hata) {
-    showMsg('admin-result', '❌ ' + res.hata, 'red');
-  } else {
-    showMsg('admin-result', res.mesaj || '✅ Komut başarılı', 'green');
-    refreshBalance();
-  }
+  setResult('admin-result', r.hata ? r.hata : (r.mesaj || 'Tamam'), r.hata ? 'err' : 'ok');
+  refreshBalance();
 }
 
-function setNetStatus(online, locked = false) {
-  const dot = document.getElementById('net-status-dot');
-  const txt = document.getElementById('net-status-text');
-  document.getElementById('stat-online');
-  if (locked) {
-    dot.className = 'status-dot status-dead';
-    txt.textContent = 'KİLİTLİ';
-    txt.style.color = 'var(--red)';
-  } else if (online) {
-    dot.className = 'status-dot status-live';
-    txt.textContent = 'CANLI';
-    txt.style.color = 'var(--green)';
-  } else {
-    dot.className = 'status-dot status-dead';
-    txt.textContent = 'BAĞLANITISIZ';
-    txt.style.color = '#666';
-  }
-}
-
-function showAlert(msg, type = 'red') {
-  const existing = document.querySelector('.alert-banner');
-  if (existing) existing.remove();
-  const div = document.createElement('div');
-  div.className = 'alert-banner';
-  div.style.background = type === 'green' ? 'var(--green)' : type === 'gold' ? 'var(--gold)' : 'var(--red)';
-  div.textContent = msg;
-  document.body.prepend(div);
-  setTimeout(() => div.remove(), 5000);
-}
-
-function showFloatMsg(msg, type = 'green') {
-  const div = document.createElement('div');
-  div.style.cssText = `position:fixed;bottom:20px;right:20px;padding:10px 16px;background:#0d0d0d;border:1px solid ${type === 'red' ? 'var(--red)' : type === 'gold' ? 'var(--gold)' : 'var(--green)'};color:${type === 'red' ? 'var(--red)' : type === 'gold' ? 'var(--gold)' : 'var(--green)'};font-size:12px;z-index:9998;font-family:'Share Tech Mono',monospace;animation:fadeIn 0.3s ease;`;
-  div.textContent = msg;
-  document.body.appendChild(div);
-  setTimeout(() => div.remove(), 4000);
-}
-
-function showMsg(elId, msg, type) {
-  const el = document.getElementById(elId);
+function setResult(id, msg, type) {
+  const el = document.getElementById(id);
   if (!el) return;
   el.textContent = msg;
-  el.style.color = type === 'red' ? 'var(--red)' : type === 'gold' ? 'var(--gold)' : 'var(--green)';
+  el.className = 'result-msg ' + type;
 }
 
-function updateTickerHash(hash) {
-  const el = document.getElementById('hash-ticker-content');
-  const hashes = Array(8).fill('').map((_, i) =>
-    ' ⬡ 0x' + Math.random().toString(16).slice(2, 18).toUpperCase() + ' → 0x' + Math.random().toString(16).slice(2, 18).toUpperCase()
-  ).join('');
-  el.textContent = hashes + hashes;
+function showFloat(msg, type = 'ok') {
+  const el = document.getElementById('float-msg');
+  el.textContent = msg;
+  el.className = 'float-msg ' + type;
+  el.style.display = 'block';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.display = 'none'; }, 4000);
 }
 
-function escapeHtml(str) {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+function setNetStatus(online) {
+  document.getElementById('hdr-online');
+  const badge = document.getElementById('net-badge');
+  if (online) {
+    badge.className = 'badge';
+    badge.innerHTML = '<i class="fa-solid fa-circle"></i> CANLI';
+  } else {
+    badge.className = 'badge locked';
+    badge.innerHTML = '<i class="fa-solid fa-circle"></i> BAĞLANTISIZ';
+  }
+}
+
+function addTicker(hash) {
+  const el = document.getElementById('ticker-text');
+  const h = hash ? hash.slice(0, 20) : '???';
+  const now = new Date().toLocaleTimeString('tr-TR');
+  el.textContent = (el.textContent + '   |   ' + now + '  ' + h).slice(-300);
 }
 
 const canvas = document.getElementById('canvas-chart');
 const ctx = canvas.getContext('2d');
 
-function updateChart(txCount) {
-  STATE.chartData.push(txCount);
+function updateChart(v) {
+  STATE.chartData.push(v);
   if (STATE.chartData.length > 60) STATE.chartData.shift();
   drawChart();
 }
 
 function drawChart() {
-  const W = canvas.offsetWidth;
-  const H = 80;
+  const W = canvas.offsetWidth || 600;
+  const H = 84;
   canvas.width = W;
   canvas.height = H;
   ctx.clearRect(0, 0, W, H);
-
   const max = Math.max(...STATE.chartData, 1);
   const step = W / (STATE.chartData.length - 1);
 
   ctx.beginPath();
-  ctx.strokeStyle = '#00ff6633';
+  ctx.strokeStyle = 'rgba(245,158,11,0.08)';
   ctx.lineWidth = 1;
-  for (let i = 0; i < 5; i++) {
-    const y = (H / 5) * i;
-    ctx.moveTo(0, y);
-    ctx.lineTo(W, y);
+  for (let i = 1; i < 4; i++) {
+    const y = (H / 4) * i;
+    ctx.moveTo(0, y); ctx.lineTo(W, y);
   }
   ctx.stroke();
-
-  const grad = ctx.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0, 'rgba(0,255,102,0.4)');
-  grad.addColorStop(1, 'rgba(0,255,102,0)');
 
   ctx.beginPath();
   STATE.chartData.forEach((v, i) => {
     const x = i * step;
-    const y = H - (v / max) * (H - 10);
+    const y = H - 6 - (v / max) * (H - 16);
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   });
-
-  ctx.lineTo(W, H);
-  ctx.lineTo(0, H);
-  ctx.closePath();
+  ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, 'rgba(59,130,246,0.2)');
+  grad.addColorStop(1, 'rgba(59,130,246,0)');
   ctx.fillStyle = grad;
   ctx.fill();
 
   ctx.beginPath();
   STATE.chartData.forEach((v, i) => {
     const x = i * step;
-    const y = H - (v / max) * (H - 10);
+    const y = H - 6 - (v / max) * (H - 16);
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   });
-  ctx.strokeStyle = '#00ff66';
+  ctx.strokeStyle = '#3b82f6';
   ctx.lineWidth = 2;
-  ctx.shadowColor = '#00ff66';
-  ctx.shadowBlur = 8;
   ctx.stroke();
-  ctx.shadowBlur = 0;
 
-  const lastX = (STATE.chartData.length - 1) * step;
-  const lastV = STATE.chartData[STATE.chartData.length - 1];
-  const lastY = H - (lastV / max) * (H - 10);
+  const lx = (STATE.chartData.length - 1) * step;
+  const lv = STATE.chartData[STATE.chartData.length - 1];
+  const ly = H - 6 - (lv / max) * (H - 16);
   ctx.beginPath();
-  ctx.arc(lastX, lastY, 4, 0, Math.PI * 2);
-  ctx.fillStyle = '#d4af37';
-  ctx.shadowColor = '#d4af37';
-  ctx.shadowBlur = 10;
+  ctx.arc(lx, ly, 3, 0, Math.PI * 2);
+  ctx.fillStyle = '#f59e0b';
   ctx.fill();
-  ctx.shadowBlur = 0;
 }
 
-async function loadInitialData() {
-  const blocks = await apiFetch('/api/blocks?limit=20');
-  if (Array.isArray(blocks)) {
-    blocks.reverse().forEach(addBlock);
-    blocks.forEach(b => updateChart(b.transactions ? b.transactions.length : 0));
-  }
-  const state = await apiFetch('/api/state');
-  if (state.network) updateNetworkState({ network: state.network });
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function init() {
+  const blocks = await api('/api/blocks?limit=15');
+  if (Array.isArray(blocks)) { [...blocks].reverse().forEach(addBlock); }
+
+  const state = await api('/api/state');
+  if (state.network) updateStats(state.network);
   document.getElementById('hdr-online').textContent = state.online || 0;
   document.getElementById('stat-online').textContent = state.online || 0;
 
-  const chatHistory = await apiFetch('/api/chat/history');
-  if (Array.isArray(chatHistory)) {
-    chatHistory.forEach(appendChat);
-  }
+  const chat = await api('/api/chat/history');
+  if (Array.isArray(chat)) chat.forEach(appendChat);
 
-  updateTickerHash('genesis');
   drawChart();
-}
 
-async function updateOnlineCount() {
-  const state = await apiFetch('/api/state');
-  document.getElementById('hdr-online').textContent = state.online || 0;
-  document.getElementById('stat-online').textContent = state.online || 0;
-}
-
-const savedWallet = localStorage.getItem('demcoin_wallet');
-if (savedWallet) {
-  try {
-    const w = JSON.parse(savedWallet);
-    STATE.wallet = w;
-    document.getElementById('wallet-address').textContent = w.address;
-    connectWS();
-    checkAdminStatus(w.address);
-    refreshBalance();
-  } catch (e) {
-    localStorage.removeItem('demcoin_wallet');
+  const saved = localStorage.getItem('dcw');
+  if (saved) {
+    try {
+      const w = JSON.parse(saved);
+      STATE.wallet = w;
+      document.getElementById('wallet-address').textContent = w.address;
+      connectWS();
+      refreshBalance();
+      checkAdmin(w.address);
+    } catch { localStorage.removeItem('dcw'); }
   }
 }
 
-loadInitialData();
-setInterval(updateOnlineCount, 10000);
-setInterval(refreshBalance, 15000);
-setInterval(drawChart, 2000);
-
+setInterval(async () => {
+  const s = await api('/api/state');
+  document.getElementById('hdr-online').textContent = s.online || 0;
+  document.getElementById('stat-online').textContent = s.online || 0;
+}, 15000);
+setInterval(refreshBalance, 20000);
+setInterval(drawChart, 3000);
 window.addEventListener('resize', drawChart);
+
+init();
