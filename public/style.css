@@ -125,6 +125,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .stat-val.red{color:var(--red);}
 .stat-val.muted{color:var(--text-muted);font-weight:400;}
 
+.price-settings-grid{display:flex;flex-direction:column;gap:8px;}
 .admin-body{padding:12px;display:flex;flex-direction:column;gap:8px;}
 .admin-tabs{display:flex;gap:4px;margin-bottom:4px;}
 .admin-tab{flex:1;background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text-muted);padding:5px;font-size:11px;cursor:pointer;transition:all .2s;}

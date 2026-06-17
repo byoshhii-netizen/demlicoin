@@ -65,8 +65,7 @@ func main() {
 	fmt.Printf("Max Arz       : %.0f DEM\n", blockchain.MaxSupply)
 	fmt.Printf("Veritabani    : PostgreSQL\n")
 
-	srv := api.NewServer(chain, hub, con, store)
-
+	srv := api.NewServerWithPrice(chain, hub, con, store, priceEngine)
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"

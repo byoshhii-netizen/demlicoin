@@ -7,13 +7,23 @@ import (
 	"time"
 )
 
+type PriceSettings struct {
+	ArtmaOrani   float64 `json:"artma_orani"`
+	MaxDegisim   float64 `json:"max_degisim"`
+	GuncelleSure int     `json:"guncelleme_suresi"`
+	MinDeger     float64 `json:"min_deger"`
+	MaxDeger     float64 `json:"max_deger"`
+}
+
 type PriceEngine struct {
 	mu       sync.RWMutex
 	current  float64
 	momentum float64
 	history  []PricePoint
 	maxHist  int
+	settings PriceSettings
 	onUpdate func(float64, []PricePoint)
+	stopCh   chan struct{}
 }
 
 func NewPriceEngine(start float64, onUpdate func(float64, []PricePoint)) *PriceEngine {
@@ -22,7 +32,15 @@ func NewPriceEngine(start float64, onUpdate func(float64, []PricePoint)) *PriceE
 		momentum: 0,
 		history:  make([]PricePoint, 0, 120),
 		maxHist:  120,
+		settings: PriceSettings{
+			ArtmaOrani:   0.52,
+			MaxDegisim:   4.0,
+			GuncelleSure: 3000,
+			MinDeger:     0.001,
+			MaxDeger:     100.0,
+		},
 		onUpdate: onUpdate,
+		stopCh:   make(chan struct{}),
 	}
 	pe.history = append(pe.history, PricePoint{Value: start, Time: time.Now().UnixMilli()})
 	return pe
@@ -34,8 +52,16 @@ func (pe *PriceEngine) Start() {
 
 func (pe *PriceEngine) loop() {
 	for {
-		time.Sleep(3 * time.Second)
-		pe.step()
+		pe.mu.RLock()
+		ms := pe.settings.GuncelleSure
+		pe.mu.RUnlock()
+
+		select {
+		case <-pe.stopCh:
+			return
+		case <-time.After(time.Duration(ms) * time.Millisecond):
+			pe.step()
+		}
 	}
 }
 
@@ -43,26 +69,26 @@ func (pe *PriceEngine) step() {
 	pe.mu.Lock()
 	defer pe.mu.Unlock()
 
-	minVal := 0.001
-	maxVal := 100.0
-	aralik := maxVal - minVal
+	s := pe.settings
+	aralik := s.MaxDeger - s.MinDeger
+	if aralik <= 0 {
+		aralik = 1
+	}
 
-	pozisyon := (pe.current - minVal) / aralik
+	pozisyon := (pe.current - s.MinDeger) / aralik
 	pozisyonBaskisi := (pozisyon - 0.5) * 0.3
-	artmaOrani := 0.52
-	efektif := math.Max(0.2, math.Min(0.8, artmaOrani-pozisyonBaskisi))
+	efektif := math.Max(0.1, math.Min(0.9, s.ArtmaOrani/100.0-pozisyonBaskisi))
 
 	yukari := rand.Float64() < efektif
 	degisimOrani := math.Pow(rand.Float64(), 1.5)
-	maxDegisim := pe.current * 0.04
-	degisim := degisimOrani * maxDegisim
+	maxD := pe.current * (s.MaxDegisim / 100.0)
+	degisim := degisimOrani * maxD
 
-	pe.momentum = pe.momentum*0.65 + func() float64 {
-		if yukari {
-			return degisim * 0.35
-		}
-		return -degisim * 0.35
-	}()
+	if yukari {
+		pe.momentum = pe.momentum*0.65 + degisim*0.35
+	} else {
+		pe.momentum = pe.momentum*0.65 - degisim*0.35
+	}
 
 	delta := degisim
 	if !yukari {
@@ -70,12 +96,12 @@ func (pe *PriceEngine) step() {
 	}
 	pe.current += delta + pe.momentum*0.4
 
-	if pe.current < minVal {
-		pe.current = minVal + math.Abs(pe.current-minVal)*0.3
+	if pe.current < s.MinDeger {
+		pe.current = s.MinDeger + math.Abs(pe.current-s.MinDeger)*0.3
 		pe.momentum = math.Abs(pe.momentum) * 0.5
 	}
-	if pe.current > maxVal {
-		pe.current = maxVal - math.Abs(pe.current-maxVal)*0.3
+	if pe.current > s.MaxDeger {
+		pe.current = s.MaxDeger - math.Abs(pe.current-s.MaxDeger)*0.3
 		pe.momentum = -math.Abs(pe.momentum) * 0.5
 	}
 
@@ -107,4 +133,42 @@ func (pe *PriceEngine) GetHistory() []PricePoint {
 	hist := make([]PricePoint, len(pe.history))
 	copy(hist, pe.history)
 	return hist
+}
+
+func (pe *PriceEngine) GetSettings() PriceSettings {
+	pe.mu.RLock()
+	defer pe.mu.RUnlock()
+	return pe.settings
+}
+
+func (pe *PriceEngine) UpdateSettings(s PriceSettings) {
+	pe.mu.Lock()
+	defer pe.mu.Unlock()
+	if s.ArtmaOrani > 0 {
+		pe.settings.ArtmaOrani = s.ArtmaOrani
+	}
+	if s.MaxDegisim > 0 {
+		pe.settings.MaxDegisim = s.MaxDegisim
+	}
+	if s.GuncelleSure >= 500 {
+		pe.settings.GuncelleSure = s.GuncelleSure
+	}
+	if s.MinDeger > 0 {
+		pe.settings.MinDeger = s.MinDeger
+	}
+	if s.MaxDeger > s.MinDeger {
+		pe.settings.MaxDeger = s.MaxDeger
+	}
+}
+
+func (pe *PriceEngine) SetPrice(price float64) {
+	pe.mu.Lock()
+	defer pe.mu.Unlock()
+	pe.current = price
+	pe.momentum = 0
+	pt := PricePoint{Value: price, Time: time.Now().UnixMilli()}
+	pe.history = append(pe.history, pt)
+	if len(pe.history) > pe.maxHist {
+		pe.history = pe.history[len(pe.history)-pe.maxHist:]
+	}
 }

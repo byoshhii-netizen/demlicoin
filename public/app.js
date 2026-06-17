@@ -332,15 +332,67 @@ async function adminCmd(cmd) {
 }
 
 function switchAdminTab(name, btn) {
-  ['network','users','token'].forEach(t => {
-    document.getElementById('admin-tab-' + t).style.display = t === name ? 'flex' : 'none';
+  ['network','price','users','token'].forEach(t => {
+    const el = document.getElementById('admin-tab-' + t);
+    if (el) el.style.display = t === name ? 'flex' : 'none';
   });
   document.querySelectorAll('.admin-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   if (name === 'users') loadRestrictions();
+  if (name === 'price') loadPriceSettings();
 }
 
-function setNetStatus(online) {
+async function loadPriceSettings() {
+  const s = await api('/api/price/settings');
+  if (s.hata) return;
+  document.getElementById('ps-artma').value = s.artma_orani || 52;
+  document.getElementById('ps-degisim').value = s.max_degisim || 4;
+  document.getElementById('ps-sure').value = s.guncelleme_suresi || 3000;
+  document.getElementById('ps-min').value = s.min_deger || 0.001;
+  document.getElementById('ps-max').value = s.max_deger || 100;
+}
+
+async function savePriceSettings() {
+  if (!STATE.wallet) return;
+  const veri = 'PriceSettings';
+  const ir = await api('/api/admin/imza-olustur', { method: 'POST', body: JSON.stringify({ priv_key: STATE.wallet.privKey, veri }) });
+  if (ir.hata) { setResult('price-settings-result', 'İmza hatası', 'err'); return; }
+
+  const body = {
+    imza: ir.imza,
+    artma_orani: parseFloat(document.getElementById('ps-artma').value) || 52,
+    max_degisim: parseFloat(document.getElementById('ps-degisim').value) || 4,
+    guncelleme_suresi: parseInt(document.getElementById('ps-sure').value) || 3000,
+    min_deger: parseFloat(document.getElementById('ps-min').value) || 0.001,
+    max_deger: parseFloat(document.getElementById('ps-max').value) || 100,
+  };
+
+  const r = await api('/api/price/settings', { method: 'POST', body: JSON.stringify(body) });
+  if (r.hata) {
+    setResult('price-settings-result', r.hata, 'err');
+  } else {
+    setResult('price-settings-result', 'Ayarlar kaydedildi', 'ok');
+    showFloat('Fiyat motoru güncellendi', 'ok');
+  }
+}
+
+async function setDirectPrice() {
+  if (!STATE.wallet) return;
+  const fiyat = parseFloat(document.getElementById('ps-fiyat').value);
+  if (isNaN(fiyat) || fiyat <= 0) { setResult('price-settings-result', 'Geçersiz fiyat', 'err'); return; }
+
+  const veri = 'SetPrice';
+  const ir = await api('/api/admin/imza-olustur', { method: 'POST', body: JSON.stringify({ priv_key: STATE.wallet.privKey, veri }) });
+  if (ir.hata) { setResult('price-settings-result', 'İmza hatası', 'err'); return; }
+
+  const r = await api('/api/price/set', { method: 'POST', body: JSON.stringify({ imza: ir.imza, fiyat }) });
+  if (r.hata) {
+    setResult('price-settings-result', r.hata, 'err');
+  } else {
+    setResult('price-settings-result', 'Fiyat ' + fiyat + ' olarak ayarlandı', 'ok');
+    showFloat('Fiyat zorla ayarlandı: ' + fiyat, 'info');
+  }
+}
   const badge = document.getElementById('net-badge');
   if (online) {
     badge.className = 'badge';

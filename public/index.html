@@ -120,8 +120,9 @@
     </div>
     <div class="admin-body">
       <div class="admin-tabs">
-        <button class="admin-tab active" onclick="switchAdminTab('network',this)">Ağ</button>
-        <button class="admin-tab" onclick="switchAdminTab('users',this)">Yatırımcılar</button>
+        <button class="admin-tab active" onclick="switchAdminTab('network',this)">Ag</button>
+        <button class="admin-tab" onclick="switchAdminTab('price',this)">Fiyat</button>
+        <button class="admin-tab" onclick="switchAdminTab('users',this)">Kullanicilar</button>
         <button class="admin-tab" onclick="switchAdminTab('token',this)">Token</button>
       </div>
 
@@ -131,8 +132,48 @@
         <button class="btn-gold" onclick="adminCmd('arz')"><i class="fa-solid fa-shield"></i> Arzı Sabitle (50M)</button>
       </div>
 
-      <div id="admin-tab-users" class="admin-tab-content" style="display:none;">
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Yatırımcı listesi</div>
+      <div id="admin-tab-price" class="admin-tab-content" style="display:none;">
+        <div class="price-settings-grid">
+          <div class="form-group">
+            <label><i class="fa-solid fa-arrow-trend-up" style="color:var(--green)"></i> Artma Orani (%)</label>
+            <input class="input-field" id="ps-artma" type="number" step="0.1" min="1" max="99" placeholder="52">
+            <span class="input-hint">50 = neutral, 70 = agresif yukari</span>
+          </div>
+          <div class="form-group">
+            <label><i class="fa-solid fa-bolt" style="color:var(--gold)"></i> Max Degisim (%)</label>
+            <input class="input-field" id="ps-degisim" type="number" step="0.1" min="0.1" max="50" placeholder="4">
+            <span class="input-hint">Her adimda max bu kadar degisir</span>
+          </div>
+          <div class="form-group">
+            <label><i class="fa-solid fa-clock" style="color:var(--blue)"></i> Guncelleme (ms)</label>
+            <input class="input-field" id="ps-sure" type="number" step="100" min="500" max="30000" placeholder="3000">
+            <span class="input-hint">500ms = hizli, 10000ms = yavas</span>
+          </div>
+          <div class="form-group">
+            <label><i class="fa-solid fa-down-long" style="color:var(--red)"></i> Min Fiyat</label>
+            <input class="input-field" id="ps-min" type="number" step="0.001" min="0.001" placeholder="0.001">
+          </div>
+          <div class="form-group">
+            <label><i class="fa-solid fa-up-long" style="color:var(--green)"></i> Max Fiyat</label>
+            <input class="input-field" id="ps-max" type="number" step="1" min="1" placeholder="100">
+          </div>
+        </div>
+        <button class="btn-gold" onclick="savePriceSettings()" style="width:100%;margin-top:8px;">
+          <i class="fa-solid fa-floppy-disk"></i> Ayarlari Kaydet
+        </button>
+        <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px;">
+          <div class="form-group">
+            <label><i class="fa-solid fa-tag" style="color:var(--gold)"></i> Anlık Fiyatı Ayarla</label>
+            <input class="input-field" id="ps-fiyat" type="number" step="0.0001" min="0.0001" placeholder="1.0000">
+          </div>
+          <button class="btn-primary" onclick="setDirectPrice()" style="width:100%;margin-top:6px;">
+            <i class="fa-solid fa-pen-to-square"></i> Fiyatı Zorla
+          </button>
+        </div>
+        <div id="price-settings-result" class="result-msg" style="margin-top:8px;"></div>
+      </div>
+
+      <div id="admin-tab-users" class="admin-tab-content" style="display:none;">        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Yatırımcı listesi</div>
         <div id="user-restriction-list" class="restriction-list"></div>
         <button class="btn-outline" onclick="loadRestrictions()" style="margin-top:8px;width:100%;font-size:12px;">
           <i class="fa-solid fa-rotate"></i> Listeyi Yenile

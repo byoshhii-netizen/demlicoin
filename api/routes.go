@@ -23,11 +23,12 @@ var upgrader = websocket.Upgrader{
 }
 
 type Server struct {
-	chain   *blockchain.Chain
-	hub     *p2p.Hub
-	console *console.Console
-	router  *mux.Router
-	store   storeIface
+	chain       *blockchain.Chain
+	hub         *p2p.Hub
+	console     *console.Console
+	router      *mux.Router
+	store       storeIface
+	priceEngine *blockchain.PriceEngine
 }
 
 type storeIface interface {
@@ -44,6 +45,12 @@ func NewServer(chain *blockchain.Chain, hub *p2p.Hub, con *console.Console, stor
 	return s
 }
 
+func NewServerWithPrice(chain *blockchain.Chain, hub *p2p.Hub, con *console.Console, store storeIface, pe *blockchain.PriceEngine) *Server {
+	s := &Server{chain: chain, hub: hub, console: con, router: mux.NewRouter(), store: store, priceEngine: pe}
+	s.setupRoutes()
+	return s
+}
+
 func (s *Server) setupRoutes() {
 	s.router.HandleFunc("/ws", s.handleWS)
 	s.router.HandleFunc("/api/wallet/new", s.handleNewWallet).Methods("GET")
@@ -55,6 +62,9 @@ func (s *Server) setupRoutes() {
 	s.router.HandleFunc("/api/chat/history", s.handleChatHistory).Methods("GET")
 	s.router.HandleFunc("/api/chat/delete", s.handleDeleteChat).Methods("POST")
 	s.router.HandleFunc("/api/price/history", s.handlePriceHistory).Methods("GET")
+	s.router.HandleFunc("/api/price/settings", s.handleGetPriceSettings).Methods("GET")
+	s.router.HandleFunc("/api/price/settings", s.handleSetPriceSettings).Methods("POST")
+	s.router.HandleFunc("/api/price/set", s.handleSetPrice).Methods("POST")
 	s.router.HandleFunc("/api/users/restrictions", s.handleGetRestrictions).Methods("GET")
 	s.router.HandleFunc("/api/users/restrict", s.handleSetRestriction).Methods("POST")
 	s.router.HandleFunc("/api/admin/kilitle", s.handleKilitle).Methods("POST")
@@ -231,12 +241,74 @@ func (s *Server) handleDeleteChat(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handlePriceHistory(w http.ResponseWriter, r *http.Request) {
+	if s.priceEngine != nil {
+		jsonOK(w, s.priceEngine.GetHistory())
+		return
+	}
 	pts, err := s.store.GetPriceHistory(120)
 	if err != nil {
 		jsonErr(w, err.Error(), 500)
 		return
 	}
 	jsonOK(w, pts)
+}
+
+func (s *Server) handleGetPriceSettings(w http.ResponseWriter, r *http.Request) {
+	if s.priceEngine == nil {
+		jsonErr(w, "Fiyat motoru yok", 500)
+		return
+	}
+	jsonOK(w, s.priceEngine.GetSettings())
+}
+
+func (s *Server) handleSetPriceSettings(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Imza         string  `json:"imza"`
+		ArtmaOrani   float64 `json:"artma_orani"`
+		MaxDegisim   float64 `json:"max_degisim"`
+		GuncelleSure int     `json:"guncelleme_suresi"`
+		MinDeger     float64 `json:"min_deger"`
+		MaxDeger     float64 `json:"max_deger"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	if !s.console.DogrulaKurucu(req.Imza, "PriceSettings") {
+		jsonErr(w, "YETKİSİZ", 403)
+		return
+	}
+	if s.priceEngine == nil {
+		jsonErr(w, "Fiyat motoru yok", 500)
+		return
+	}
+	s.priceEngine.UpdateSettings(blockchain.PriceSettings{
+		ArtmaOrani:   req.ArtmaOrani,
+		MaxDegisim:   req.MaxDegisim,
+		GuncelleSure: req.GuncelleSure,
+		MinDeger:     req.MinDeger,
+		MaxDeger:     req.MaxDeger,
+	})
+	jsonOK(w, map[string]interface{}{"ok": true, "settings": s.priceEngine.GetSettings()})
+}
+
+func (s *Server) handleSetPrice(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Imza  string  `json:"imza"`
+		Fiyat float64 `json:"fiyat"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	if !s.console.DogrulaKurucu(req.Imza, "SetPrice") {
+		jsonErr(w, "YETKİSİZ", 403)
+		return
+	}
+	if s.priceEngine == nil {
+		jsonErr(w, "Fiyat motoru yok", 500)
+		return
+	}
+	if req.Fiyat <= 0 {
+		jsonErr(w, "Geçersiz fiyat", 400)
+		return
+	}
+	s.priceEngine.SetPrice(req.Fiyat)
+	jsonOK(w, map[string]interface{}{"ok": true, "fiyat": req.Fiyat})
 }
 
 func (s *Server) handleGetRestrictions(w http.ResponseWriter, r *http.Request) {
