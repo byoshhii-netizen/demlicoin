@@ -3,209 +3,209 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>DemCoin</title>
+<title>DemCoin Dashboard</title>
 <link rel="icon" type="image/png" href="demcoins.png">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <header class="header">
   <div class="header-left">
-    <img src="demcoins.png" alt="DemCoin" class="header-logo" onerror="this.style.display='none'">
+    <img src="demcoins.png" alt="" class="header-logo" onerror="this.style.display='none'">
     <span class="logo">DEM<span class="logo-accent">COIN</span></span>
     <span class="badge" id="net-badge"><i class="fa-solid fa-circle-dot"></i> CANLI</span>
   </div>
-  <div class="header-center">
-    <span class="price-display"><span id="hdr-price">0.0000</span> <span class="price-unit">DEM/USD</span></span>
-    <span id="price-change" class="price-change"></span>
+  <div class="header-ticker" id="header-ticker">
+    <span id="ticker-content">DEM/USD: 0.0000 | Hacim: 0 DEM | Islem: 0</span>
   </div>
   <div class="header-right">
+    <div class="wallet-mini" id="wallet-mini" style="display:none;">
+      <div class="wallet-mini-bal"><span id="mini-balance">0</span> <span class="wm-unit">DEM</span></div>
+      <div class="wallet-mini-usd" id="mini-usd">$0.00</div>
+    </div>
     <span class="header-stat"><i class="fa-solid fa-cube"></i> <span id="hdr-block">0</span></span>
-    <span class="header-stat"><i class="fa-solid fa-coins"></i> <span id="hdr-supply">0</span></span>
     <span class="header-stat"><i class="fa-solid fa-users"></i> <span id="hdr-online">0</span></span>
-    <button class="btn-icon" onclick="openWalletModal()" title="Cüzdan"><i class="fa-solid fa-wallet"></i></button>
+    <button class="btn-icon" onclick="openWalletModal()"><i class="fa-solid fa-wallet"></i></button>
   </div>
 </header>
 
-<div class="ticker-bar">
-  <div class="ticker-inner" id="ticker-inner">
-    <span id="ticker-text">— ağ bekleniyor —</span>
+<nav class="sidebar">
+  <button class="nav-btn active" onclick="switchPage('dashboard',this)"><i class="fa-solid fa-chart-line"></i><span>Dashboard</span></button>
+  <button class="nav-btn" onclick="switchPage('toplist',this)"><i class="fa-solid fa-trophy"></i><span>Toplist</span></button>
+  <button class="nav-btn" onclick="switchPage('wallet',this)"><i class="fa-solid fa-wallet"></i><span>Cüzdanim</span></button>
+  <button class="nav-btn admin-only" id="nav-admin" onclick="switchPage('admin',this)" style="display:none;"><i class="fa-solid fa-shield-halved"></i><span>Admin</span></button>
+</nav>
+
+<main class="page-wrap">
+
+  <div class="page active" id="page-dashboard">
+    <div class="dash-grid">
+
+      <div class="card dash-chart-card">
+        <div class="card-header">
+          <span><i class="fa-solid fa-chart-candlestick"></i> DEM/USD Canli Grafik</span>
+          <div style="display:flex;gap:12px;align-items:center;">
+            <span id="chart-price" class="price-big">0.0000</span>
+            <span id="price-change-badge" class="price-badge">0.00%</span>
+          </div>
+        </div>
+        <canvas id="canvas-chart"></canvas>
+        <div class="chart-stats-bar">
+          <div class="cstat"><span class="cs-label">24S YÜK</span><span class="cs-val" id="cs-high">0.0000</span></div>
+          <div class="cstat"><span class="cs-label">24S DUS</span><span class="cs-val" id="cs-low">0.0000</span></div>
+          <div class="cstat"><span class="cs-label">HACIM</span><span class="cs-val" id="cs-vol">0 DEM</span></div>
+          <div class="cstat"><span class="cs-label">ISLEM</span><span class="cs-val" id="cs-trades">0</span></div>
+          <div class="cstat"><span class="cs-label">BLOK</span><span class="cs-val" id="cs-block">0</span></div>
+        </div>
+      </div>
+
+      <div class="card dash-chat-card">
+        <div class="card-header">
+          <span><i class="fa-solid fa-comments"></i> On-Chain Chat</span>
+          <span class="card-sub" id="chat-anon-label">Giris yap</span>
+        </div>
+        <div class="chat-hint-bar" id="chat-hint-bar" style="display:none;">
+          <i class="fa-solid fa-user-secret"></i> Anonim adin: <strong id="anon-name-display"></strong>
+        </div>
+        <div class="chat-messages" id="chat-messages"></div>
+        <div class="chat-input-bar">
+          <input class="input-field" id="chat-input" placeholder="Giris yap ve mesaj yaz... (1 DEM)" maxlength="500" onkeydown="if(event.key==='Enter')sendChat()">
+          <button class="btn-send" onclick="sendChat()"><i class="fa-solid fa-arrow-up"></i></button>
+        </div>
+      </div>
+
+      <div class="card dash-trades-card">
+        <div class="card-header">
+          <span><i class="fa-solid fa-arrows-rotate"></i> Son Islemler</span>
+        </div>
+        <div class="trades-list" id="trades-list"></div>
+      </div>
+
+      <div class="card dash-blocks-card">
+        <div class="card-header">
+          <span><i class="fa-solid fa-layer-group"></i> Blok Zinciri</span>
+          <span class="card-sub" id="block-count-label">0 blok</span>
+        </div>
+        <div class="list-scroll" id="block-list"></div>
+      </div>
+
+      <div class="card dash-stats-card">
+        <div class="card-header"><span><i class="fa-solid fa-chart-pie"></i> Ag Istatistigi</span></div>
+        <div class="stats-list">
+          <div class="stat-row"><span>Toplam Blok</span><span id="stat-blocks" class="stat-val">0</span></div>
+          <div class="stat-row"><span>Dolaşim</span><span id="stat-supply" class="stat-val">0 DEM</span></div>
+          <div class="stat-row"><span>Max Arz</span><span class="stat-val muted">50M DEM</span></div>
+          <div class="stat-row"><span>Online</span><span id="stat-online" class="stat-val">0</span></div>
+          <div class="stat-row"><span>Ag Durumu</span><span id="stat-locked" class="stat-val green">Aktif</span></div>
+          <div class="stat-row"><span>Chat Gas</span><span class="stat-val muted">1 DEM</span></div>
+          <div class="stat-row"><span>Transfer Gas</span><span class="stat-val muted">5 DEM</span></div>
+        </div>
+      </div>
+
+    </div>
   </div>
-</div>
 
-<main class="main-grid">
-
-  <section class="card card-chart">
-    <div class="card-header">
-      <span><i class="fa-solid fa-chart-line"></i> DEM Fiyat Grafiği</span>
-      <div style="display:flex;gap:16px;align-items:center;">
-        <span id="chart-price" style="font-size:18px;font-weight:700;color:var(--green);">0.0000</span>
-        <span class="card-sub">Canlı</span>
+  <div class="page" id="page-toplist">
+    <div class="page-header"><h2><i class="fa-solid fa-trophy"></i> Zenginler Listesi</h2></div>
+    <div class="toplist-wrap">
+      <div class="toplist-table-wrap">
+        <table class="toplist-table">
+          <thead><tr><th>SIRA</th><th>KULLANICI</th><th>ADRES</th><th>BAKİYE</th></tr></thead>
+          <tbody id="toplist-body"></tbody>
+        </table>
       </div>
     </div>
-    <canvas id="canvas-chart"></canvas>
-  </section>
+  </div>
 
-  <section class="card card-blocks">
-    <div class="card-header">
-      <span><i class="fa-solid fa-layer-group"></i> Blok Zinciri</span>
-      <span class="card-sub" id="block-count">0 blok</span>
-    </div>
-    <div class="list-scroll" id="block-list"></div>
-  </section>
-
-  <section class="card card-wallet">
-    <div class="card-header">
-      <span><i class="fa-solid fa-wallet"></i> Cüzdan</span>
-    </div>
-    <div class="wallet-body">
-      <div class="wallet-address" id="wallet-address">Bağlı cüzdan yok</div>
-      <div class="wallet-balance">
-        <span id="balance-num">0</span>
-        <span class="balance-unit">DEM</span>
-      </div>
-      <div class="form-group">
-        <label>Hedef Adres</label>
-        <input class="input-field" id="to-address" placeholder="DEM...">
-      </div>
-      <div class="form-group">
-        <label>Miktar</label>
-        <input class="input-field" id="transfer-amount" type="number" placeholder="0.00">
-        <span class="input-hint">+ 5 DEM gas ücreti</span>
-      </div>
-      <button class="btn-primary" onclick="doTransfer()">
-        <i class="fa-solid fa-paper-plane"></i> Transfer Gönder
-      </button>
-      <div id="transfer-result" class="result-msg"></div>
-    </div>
-  </section>
-
-  <section class="card card-chat">
-    <div class="card-header">
-      <span><i class="fa-solid fa-comments"></i> On-Chain Chat</span>
-      <span class="card-sub" id="chat-username-display">1 DEM / mesaj</span>
-    </div>
-    <div class="chat-hint" id="chat-hint" style="display:none;">
-      <i class="fa-solid fa-circle-info"></i> Anonim adın: <strong id="anon-name-hint"></strong>
-    </div>
-    <div class="chat-messages" id="chat-messages"></div>
-    <div class="chat-input-bar">
-      <input class="input-field" id="chat-input" placeholder="Cüzdanla giriş yap ve mesaj yaz..." maxlength="500"
-        onkeydown="if(event.key==='Enter')sendChat()">
-      <button class="btn-send" onclick="sendChat()"><i class="fa-solid fa-arrow-up"></i></button>
-    </div>
-  </section>
-
-  <section class="card card-stats">
-    <div class="card-header">
-      <span><i class="fa-solid fa-chart-pie"></i> İstatistik</span>
-    </div>
-    <div class="stats-list">
-      <div class="stat-row"><span>Toplam Blok</span><span id="stat-blocks" class="stat-val">0</span></div>
-      <div class="stat-row"><span>Dolaşım</span><span id="stat-supply" class="stat-val">0 DEM</span></div>
-      <div class="stat-row"><span>Max Arz</span><span class="stat-val muted">50,000,000 DEM</span></div>
-      <div class="stat-row"><span>Online</span><span id="stat-online" class="stat-val">0</span></div>
-      <div class="stat-row"><span>Ağ</span><span id="stat-locked" class="stat-val green">Aktif</span></div>
-      <div class="stat-row"><span>Chat Gas</span><span class="stat-val muted">1 DEM</span></div>
-      <div class="stat-row"><span>Transfer Gas</span><span class="stat-val muted">5 DEM</span></div>
-    </div>
-  </section>
-
-  <section class="card card-admin" id="admin-panel" style="display:none;">
-    <div class="card-header">
-      <span><i class="fa-solid fa-shield-halved"></i> Yönetim</span>
-      <span class="card-sub gold">Kurucu</span>
-    </div>
-    <div class="admin-body">
-      <div class="admin-tabs">
-        <button class="admin-tab active" onclick="switchAdminTab('network',this)">Ag</button>
-        <button class="admin-tab" onclick="switchAdminTab('price',this)">Fiyat</button>
-        <button class="admin-tab" onclick="switchAdminTab('users',this)">Kullanicilar</button>
-        <button class="admin-tab" onclick="switchAdminTab('token',this)">Token</button>
-      </div>
-
-      <div id="admin-tab-network" class="admin-tab-content">
-        <button class="btn-danger" onclick="adminCmd('kilitle')"><i class="fa-solid fa-lock"></i> Ağı Kilitle</button>
-        <button class="btn-success" onclick="adminCmd('ac')"><i class="fa-solid fa-lock-open"></i> Ağı Aç</button>
-        <button class="btn-gold" onclick="adminCmd('arz')"><i class="fa-solid fa-shield"></i> Arzı Sabitle (50M)</button>
-      </div>
-
-      <div id="admin-tab-price" class="admin-tab-content" style="display:none;">
-        <div class="price-settings-grid">
-          <div class="form-group">
-            <label><i class="fa-solid fa-arrow-trend-up" style="color:var(--green)"></i> Artma Orani (%)</label>
-            <input class="input-field" id="ps-artma" type="number" step="0.1" min="1" max="99" placeholder="52">
-            <span class="input-hint">50 = neutral, 70 = agresif yukari</span>
+  <div class="page" id="page-wallet">
+    <div class="page-header"><h2><i class="fa-solid fa-wallet"></i> Cüzdanim</h2></div>
+    <div class="wallet-page-grid">
+      <div class="card">
+        <div class="card-header"><span>Bakiye</span></div>
+        <div style="padding:20px;">
+          <div class="wallet-address" id="wallet-address-full">Cüzdan bağlı değil</div>
+          <div class="wallet-balance-big">
+            <span id="wp-balance">0</span> <span class="wbu">DEM</span>
           </div>
-          <div class="form-group">
-            <label><i class="fa-solid fa-bolt" style="color:var(--gold)"></i> Max Degisim (%)</label>
-            <input class="input-field" id="ps-degisim" type="number" step="0.1" min="0.1" max="50" placeholder="4">
-            <span class="input-hint">Her adimda max bu kadar degisir</span>
-          </div>
-          <div class="form-group">
-            <label><i class="fa-solid fa-clock" style="color:var(--blue)"></i> Guncelleme (ms)</label>
-            <input class="input-field" id="ps-sure" type="number" step="100" min="500" max="30000" placeholder="3000">
-            <span class="input-hint">500ms = hizli, 10000ms = yavas</span>
-          </div>
-          <div class="form-group">
-            <label><i class="fa-solid fa-down-long" style="color:var(--red)"></i> Min Fiyat</label>
-            <input class="input-field" id="ps-min" type="number" step="0.001" min="0.001" placeholder="0.001">
-          </div>
-          <div class="form-group">
-            <label><i class="fa-solid fa-up-long" style="color:var(--green)"></i> Max Fiyat</label>
-            <input class="input-field" id="ps-max" type="number" step="1" min="1" placeholder="100">
-          </div>
+          <div class="wallet-usd-big" id="wp-usd">≈ $0.00 USD</div>
         </div>
-        <button class="btn-gold" onclick="savePriceSettings()" style="width:100%;margin-top:8px;">
-          <i class="fa-solid fa-floppy-disk"></i> Ayarlari Kaydet
-        </button>
-        <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px;">
-          <div class="form-group">
-            <label><i class="fa-solid fa-tag" style="color:var(--gold)"></i> Anlık Fiyatı Ayarla</label>
-            <input class="input-field" id="ps-fiyat" type="number" step="0.0001" min="0.0001" placeholder="1.0000">
-          </div>
-          <button class="btn-primary" onclick="setDirectPrice()" style="width:100%;margin-top:6px;">
-            <i class="fa-solid fa-pen-to-square"></i> Fiyatı Zorla
-          </button>
-        </div>
-        <div id="price-settings-result" class="result-msg" style="margin-top:8px;"></div>
       </div>
-
-      <div id="admin-tab-users" class="admin-tab-content" style="display:none;">        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Yatırımcı listesi</div>
-        <div id="user-restriction-list" class="restriction-list"></div>
-        <button class="btn-outline" onclick="loadRestrictions()" style="margin-top:8px;width:100%;font-size:12px;">
-          <i class="fa-solid fa-rotate"></i> Listeyi Yenile
-        </button>
+      <div class="card">
+        <div class="card-header"><span>Transfer Gönder</span></div>
+        <div style="padding:16px;display:flex;flex-direction:column;gap:10px;">
+          <div class="form-group"><label>Hedef Adres</label><input class="input-field" id="to-address" placeholder="DEM..."></div>
+          <div class="form-group"><label>Miktar (DEM)</label><input class="input-field" id="transfer-amount" type="number" placeholder="0.00"><span class="input-hint">+ 5 DEM gas</span></div>
+          <button class="btn-primary" onclick="doTransfer()"><i class="fa-solid fa-paper-plane"></i> Gönder</button>
+          <div id="transfer-result" class="result-msg"></div>
+        </div>
       </div>
+    </div>
+  </div>
 
-      <div id="admin-tab-token" class="admin-tab-content" style="display:none;">
-        <div class="form-group">
-          <label>Hedef adres</label>
-          <input class="input-field" id="mint-address" placeholder="DEM...">
-        </div>
-        <div class="form-group" style="margin-top:6px;">
-          <label>Miktar</label>
-          <input class="input-field" id="mint-amount" type="number" placeholder="100">
-        </div>
-        <button class="btn-gold" onclick="adminCmd('mint')" style="margin-top:8px;width:100%;">
-          <i class="fa-solid fa-coins"></i> Token Bas
-        </button>
-        <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px;">
-          <div class="form-group">
-            <label>Kara listeye ekle</label>
-            <input class="input-field" id="ban-address" placeholder="DEM...">
-          </div>
-          <button class="btn-danger" onclick="adminCmd('yasakla')" style="margin-top:6px;width:100%;">
-            <i class="fa-solid fa-ban"></i> Cüzdan Yasakla
-          </button>
+  <div class="page" id="page-admin" style="display:none;">
+    <div class="page-header"><h2><i class="fa-solid fa-shield-halved"></i> Admin Paneli</h2></div>
+    <div class="admin-page-grid">
+
+      <div class="card">
+        <div class="card-header"><span><i class="fa-solid fa-network-wired"></i> Ag Kontrolü</span></div>
+        <div style="padding:14px;display:flex;flex-direction:column;gap:8px;">
+          <button class="btn-danger" onclick="adminCmd('kilitle')"><i class="fa-solid fa-lock"></i> Ağı Kilitle</button>
+          <button class="btn-success" onclick="adminCmd('ac')"><i class="fa-solid fa-lock-open"></i> Ağı Aç</button>
+          <button class="btn-gold" onclick="adminCmd('arz')"><i class="fa-solid fa-shield"></i> Arzı Sabitle (50M)</button>
+          <div id="admin-net-result" class="result-msg"></div>
         </div>
       </div>
 
-      <div id="admin-result" class="result-msg" style="margin-top:10px;"></div>
+      <div class="card">
+        <div class="card-header"><span><i class="fa-solid fa-chart-line"></i> Fiyat Motoru</span></div>
+        <div style="padding:14px;display:flex;flex-direction:column;gap:8px;">
+          <div class="form-group"><label>Artma Orani (%)</label><input class="input-field" id="ps-artma" type="number" step="0.1" min="1" max="99" placeholder="52"><span class="input-hint">50=nötr, 70=yükseliş, 30=düşüş</span></div>
+          <div class="form-group"><label>Max Degisim (%)</label><input class="input-field" id="ps-degisim" type="number" step="0.1" min="0.1" max="50" placeholder="4"></div>
+          <div class="form-group"><label>Guncelleme (ms)</label><input class="input-field" id="ps-sure" type="number" step="100" min="500" placeholder="3000"></div>
+          <div style="display:flex;gap:6px;">
+            <div class="form-group" style="flex:1;"><label>Min Fiyat</label><input class="input-field" id="ps-min" type="number" step="0.001" placeholder="0.001"></div>
+            <div class="form-group" style="flex:1;"><label>Max Fiyat</label><input class="input-field" id="ps-max" type="number" step="1" placeholder="100"></div>
+          </div>
+          <button class="btn-gold" onclick="savePriceSettings()"><i class="fa-solid fa-floppy-disk"></i> Kaydet</button>
+          <div style="border-top:1px solid var(--border);padding-top:8px;">
+            <div class="form-group"><label>Anlık Fiyatı Zorla</label><input class="input-field" id="ps-fiyat" type="number" step="0.0001" placeholder="1.0000"></div>
+            <button class="btn-primary" onclick="setDirectPrice()" style="margin-top:6px;width:100%;"><i class="fa-solid fa-pen-to-square"></i> Fiyatı Ayarla</button>
+          </div>
+          <div id="admin-price-result" class="result-msg"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span><i class="fa-solid fa-coins"></i> Token Islemi</span></div>
+        <div style="padding:14px;display:flex;flex-direction:column;gap:8px;">
+          <div class="form-group"><label>Token Bas - Hedef Adres</label><input class="input-field" id="mint-address" placeholder="DEM..."></div>
+          <div class="form-group"><label>Miktar</label><input class="input-field" id="mint-amount" type="number" placeholder="100"></div>
+          <button class="btn-gold" onclick="adminCmd('mint')"><i class="fa-solid fa-coins"></i> Token Bas</button>
+          <div style="border-top:1px solid var(--border);padding-top:8px;">
+            <div class="form-group"><label>Cüzdan Yasakla</label><input class="input-field" id="ban-address" placeholder="DEM..."></div>
+            <button class="btn-danger" onclick="adminCmd('yasakla')" style="margin-top:6px;"><i class="fa-solid fa-ban"></i> Yasakla</button>
+          </div>
+          <div id="admin-token-result" class="result-msg"></div>
+        </div>
+      </div>
+
+      <div class="card" style="grid-column:1/-1;">
+        <div class="card-header">
+          <span><i class="fa-solid fa-users"></i> Cüzdan Yönetimi</span>
+          <button class="btn-icon" onclick="loadAdminWallets()"><i class="fa-solid fa-rotate"></i></button>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="admin-wallet-table">
+            <thead><tr><th>KULLANICI</th><th>ADRES</th><th>BAKİYE</th><th>DURUM</th><th>İŞLEM</th></tr></thead>
+            <tbody id="admin-wallet-body"></tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
-  </section>
+  </div>
 
 </main>
 
@@ -217,19 +217,19 @@
     </div>
     <div class="modal-body" id="wallet-modal-content">
       <div id="current-wallet-info" style="display:none;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);margin-bottom:4px;">
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">BAĞLI CÜZDAN</div>
-        <div id="modal-current-addr" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--green);word-break:break-all;"></div>
-        <button onclick="logoutWallet()" style="margin-top:8px;background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius-sm);padding:6px 12px;font-size:12px;cursor:pointer;width:100%;">
-          <i class="fa-solid fa-right-from-bracket"></i> Cüzdandan Çık
+        <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">BAĞLI CÜZDAN</div>
+        <div id="modal-current-addr" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--green);word-break:break-all;"></div>
+        <button onclick="logoutWallet()" style="margin-top:8px;background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.2);border-radius:var(--radius-sm);padding:6px 12px;font-size:12px;cursor:pointer;width:100%;">
+          <i class="fa-solid fa-right-from-bracket"></i> Çıkış Yap
         </button>
       </div>
-      <button class="btn-primary" onclick="generateWallet()" style="width:100%;margin-bottom:12px;">
+      <button class="btn-primary" onclick="generateWallet()" style="width:100%;margin-bottom:10px;">
         <i class="fa-solid fa-plus"></i> Yeni Cüzdan Oluştur
       </button>
       <div class="divider">veya mevcut ile giriş</div>
       <div class="form-group" style="margin-top:8px;">
         <label>Private Key</label>
-        <input class="input-field" id="import-privkey" placeholder="hex formatında..." type="password">
+        <input class="input-field" id="import-privkey" placeholder="hex..." type="password">
       </div>
       <button class="btn-outline" onclick="importWallet()" style="width:100%;margin-top:6px;">
         <i class="fa-solid fa-right-to-bracket"></i> Yükle
@@ -241,7 +241,7 @@
 <div id="tx-notify" class="tx-notify" style="display:none;">
   <img src="demcoins.png" alt="" class="tx-notify-logo" onerror="this.style.display='none'">
   <div class="tx-notify-text">
-    <div class="tx-notify-title" id="tx-notify-title">Transfer Başarılı</div>
+    <div class="tx-notify-title" id="tx-notify-title">İşlem Başarılı</div>
     <div class="tx-notify-sub" id="tx-notify-sub"></div>
   </div>
 </div>
