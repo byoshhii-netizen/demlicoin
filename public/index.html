@@ -41,7 +41,7 @@
   <button class="nav-btn" onclick="switchPage('mining',this)"><i class="fa-solid fa-pickaxe"></i><span>Mining</span></button>
   <button class="nav-btn" onclick="switchPage('explorer',this)"><i class="fa-solid fa-magnifying-glass"></i><span>Explorer</span></button>
   <button class="nav-btn" onclick="switchPage('wallet',this)"><i class="fa-solid fa-wallet"></i><span>Cüzdanim</span></button>
-  <button class="nav-btn admin-only" id="nav-admin" onclick="switchPage('admin',this)" style="display:none;"><i class="fa-solid fa-shield-halved"></i><span>Admin</span></button>
+  <button class="nav-btn" onclick="switchPage('quests',this)"><i class="fa-solid fa-list-check"></i><span>Görevler</span></button>
   <button class="nav-btn admin-only" id="nav-admin" onclick="switchPage('admin',this)" style="display:none;"><i class="fa-solid fa-shield-halved"></i><span>Admin</span></button>
 </nav>
 
@@ -434,6 +434,32 @@
           <div id="transfer-result" class="result-msg"></div>
         </div>
       </div>
+      <div class="card" style="grid-column:1/-1;">
+        <div class="card-header"><span><i class="fa-solid fa-user-plus"></i> Davet Linkim</span></div>
+        <div style="padding:14px;">
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Arkadaşlarını davet et, görev ödülleri kazan. Davet kodun kendi cüzdan adresin.</p>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <div class="input-field" id="my-referral-code" style="flex:1;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--green);cursor:text;">Cüzdan bağlayın</div>
+            <button class="btn-icon" onclick="copyReferralCode()" title="Kopyala"><i class="fa-solid fa-copy"></i></button>
+          </div>
+          <div id="referral-stats" style="margin-top:10px;font-size:12px;color:var(--text-muted);">
+            Davet edilen: <span id="ref-invited-count" style="color:var(--gold);font-weight:600;">0</span> kişi
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Görevler Sayfası -->
+  <div class="page" id="page-quests">
+    <div class="page-header">
+      <h2><i class="fa-solid fa-list-check"></i> Görevler</h2>
+      <p style="font-size:12px;color:var(--text-muted);margin-top:4px;">Görevleri tamamla, DEM kazan. Ödüller otomatik cüzdanına yüklenir.</p>
+    </div>
+    <div id="quests-container" style="display:grid;gap:12px;max-width:700px;">
+      <div style="color:var(--text-muted);font-size:12px;padding:20px;text-align:center;">
+        <i class="fa-solid fa-spinner fa-spin"></i> Yükleniyor...
+      </div>
     </div>
   </div>
 
@@ -497,6 +523,56 @@
         </div>
       </div>
 
+      <!-- IP Listesi -->
+      <div class="card" style="grid-column:1/-1;">
+        <div class="card-header">
+          <span><i class="fa-solid fa-network-wired"></i> IP Kayıt Listesi (Yatırımcı IP'leri)</span>
+          <button class="btn-icon" onclick="loadAdminIPList()"><i class="fa-solid fa-rotate"></i></button>
+        </div>
+        <div style="padding:10px 14px;font-size:11px;color:var(--text-muted);">
+          Bir IP'den maksimum 3 cüzdan kayıt edilebilir. Aşağıda tüm kayıtlar IP'ye göre gruplandırılmıştır.
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="admin-wallet-table">
+            <thead><tr><th>IP ADRESİ</th><th>CÜZDAN SAYISI</th><th>ADRES</th><th>BAKİYE</th><th>KAYIT TARİHİ</th></tr></thead>
+            <tbody id="admin-ip-body"></tbody>
+          </table>
+        </div>
+        <div style="padding:8px 14px;border-top:1px solid var(--border);font-size:11px;color:var(--text-muted);">
+          Toplam kayıt: <span id="ip-total-count" style="color:var(--gold);font-weight:600;">0</span>
+        </div>
+      </div>
+
+      <!-- Görev Yönetimi -->
+      <div class="card" style="grid-column:1/-1;">
+        <div class="card-header">
+          <span><i class="fa-solid fa-list-check"></i> Görev Yönetimi</span>
+          <button class="btn-icon" onclick="loadAdminQuests()"><i class="fa-solid fa-rotate"></i></button>
+        </div>
+        <div style="padding:14px;display:flex;flex-direction:column;gap:10px;">
+          <!-- Yeni Görev Formu -->
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;">
+            <div style="font-size:11px;color:var(--gold);margin-bottom:10px;font-weight:600;"><i class="fa-solid fa-plus"></i> Yeni Görev Oluştur</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <div class="form-group"><label>Görev Adı</label><input class="input-field" id="nq-title" placeholder="5 Kişi Davet Et"></div>
+              <div class="form-group">
+                <label>Görev Tipi</label>
+                <select class="input-field" id="nq-type">
+                  <option value="invite">Davet (invite)</option>
+                </select>
+              </div>
+              <div class="form-group"><label>Hedef Sayı</label><input class="input-field" id="nq-target" type="number" placeholder="5" min="1"></div>
+              <div class="form-group"><label>Ödül (DEM)</label><input class="input-field" id="nq-reward" type="number" placeholder="5" min="0.1" step="0.1"></div>
+            </div>
+            <div class="form-group"><label>Açıklama</label><input class="input-field" id="nq-desc" placeholder="5 kişiyi DemCoin'e davet et, 5 DEM kazan"></div>
+            <button class="btn-gold" onclick="adminCreateQuest()" style="margin-top:6px;"><i class="fa-solid fa-plus"></i> Görevi Oluştur</button>
+            <div id="admin-quest-result" class="result-msg" style="margin-top:6px;"></div>
+          </div>
+          <!-- Mevcut Görevler -->
+          <div id="admin-quests-list"></div>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -518,6 +594,17 @@
       </div>
 
       <div id="wallet-new-result-area" style="display:none;"></div>
+
+      <!-- Davet kodu alanı -->
+      <div id="referral-input-area" style="margin-bottom:10px;">
+        <div class="form-group">
+          <label style="display:flex;align-items:center;gap:6px;">
+            <i class="fa-solid fa-user-plus" style="color:var(--gold);"></i> Davet Kodu (İsteğe Bağlı)
+          </label>
+          <input class="input-field" id="new-wallet-referral" placeholder="Seni davet eden kişinin cüzdan adresi...">
+          <span class="input-hint">Davet koduyla kaydolursan davet eden görev ilerler</span>
+        </div>
+      </div>
 
       <button class="btn-primary" id="btn-new-wallet" onclick="generateWallet()" style="width:100%;margin-bottom:10px;">
         <i class="fa-solid fa-plus"></i> Yeni Cuzdan Olustur

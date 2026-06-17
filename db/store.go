@@ -507,3 +507,300 @@ func GetRecentTrades(limit int) ([]map[string]interface{}, error) {
 func init() {
 	_ = time.Now()
 }
+
+// ─── IP Kayıt Sistemi ───────────────────────────────────────────────────────
+
+// Bir IP adresinden kaç cüzdan kayıt edildiğini döner
+func GetIPWalletCount(ip string) (int, error) {
+	var count int
+	err := DB.QueryRow(`SELECT COUNT(*) FROM wallet_registrations WHERE ip_address = $1`, ip).Scan(&count)
+	return count, err
+}
+
+// IP + cüzdan kaydını kaydeder
+func RegisterWalletIP(address, ip string) error {
+	_, err := DB.Exec(`
+		INSERT INTO wallet_registrations (address, ip_address)
+		VALUES ($1, $2)
+		ON CONFLICT DO NOTHING`, address, ip)
+	return err
+}
+
+// Admin için tüm IP kayıtlarını döner
+func GetAllIPRegistrations() ([]map[string]interface{}, error) {
+	rows, err := DB.Query(`
+		SELECT r.address, r.ip_address, r.registered_at,
+		       COALESCE(w.balance, 0) as balance
+		FROM wallet_registrations r
+		LEFT JOIN wallets w ON r.address = w.address
+		ORDER BY r.registered_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var list []map[string]interface{}
+	for rows.Next() {
+		var addr, ip string
+		var bal float64
+		var regAt time.Time
+		rows.Scan(&addr, &ip, &regAt, &bal)
+		list = append(list, map[string]interface{}{
+			"address":       addr,
+			"ip_address":    ip,
+			"registered_at": regAt,
+			"balance":       bal,
+		})
+	}
+	return list, nil
+}
+
+// Belirli bir IP'nin kayıtlı cüzdanlarını döner
+func GetWalletsByIP(ip string) ([]string, error) {
+	rows, err := DB.Query(`SELECT address FROM wallet_registrations WHERE ip_address = $1`, ip)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var addrs []string
+	for rows.Next() {
+		var addr string
+		rows.Scan(&addr)
+		addrs = append(addrs, addr)
+	}
+	return addrs, nil
+}
+
+// ─── Davet (Referral) Sistemi ────────────────────────────────────────────────
+
+// Davet kodu geçerli mi? (referrer'ın adresi olarak kullanılır)
+func IsValidReferralCode(code string) bool {
+	if code == "" {
+		return false
+	}
+	return WalletExists(code)
+}
+
+// Davet kaydı oluştur
+func CreateReferral(referrerAddr, invitedAddr string) error {
+	// Zaten davet edilmiş mi kontrol et
+	var count int
+	DB.QueryRow(`SELECT COUNT(*) FROM referrals WHERE invited_addr = $1`, invitedAddr).Scan(&count)
+	if count > 0 {
+		return nil // zaten kayıtlı, hata döndürme
+	}
+	_, err := DB.Exec(`
+		INSERT INTO referrals (referrer_addr, invited_addr)
+		VALUES ($1, $2)
+		ON CONFLICT DO NOTHING`, referrerAddr, invitedAddr)
+	if err != nil {
+		return err
+	}
+	// Referrer'ın davet görev ilerlemesini güncelle
+	go updateInviteQuestProgress(referrerAddr)
+	return nil
+}
+
+// Bir adresin davet sayısını döner
+func GetReferralCount(address string) (int, error) {
+	var count int
+	err := DB.QueryRow(`SELECT COUNT(*) FROM referrals WHERE referrer_addr = $1`, address).Scan(&count)
+	return count, err
+}
+
+// Kimin tarafından davet edildiğini döner
+func GetReferrerOf(address string) (string, error) {
+	var referrer string
+	err := DB.QueryRow(`SELECT referrer_addr FROM referrals WHERE invited_addr = $1`, address).Scan(&referrer)
+	return referrer, err
+}
+
+// ─── Görev Sistemi ───────────────────────────────────────────────────────────
+
+type QuestDefinition struct {
+	ID          int64   `json:"id"`
+	Title       string  `json:"title"`
+	Description string  `json:"description"`
+	QuestType   string  `json:"quest_type"`
+	TargetCount int     `json:"target_count"`
+	RewardDEM   float64 `json:"reward_dem"`
+	Active      bool    `json:"active"`
+}
+
+type QuestProgress struct {
+	QuestID     int64   `json:"quest_id"`
+	Title       string  `json:"title"`
+	Description string  `json:"description"`
+	QuestType   string  `json:"quest_type"`
+	TargetCount int     `json:"target_count"`
+	RewardDEM   float64 `json:"reward_dem"`
+	Progress    int     `json:"progress"`
+	Completed   bool    `json:"completed"`
+	Rewarded    bool    `json:"rewarded"`
+}
+
+func GetAllQuests() ([]*QuestDefinition, error) {
+	rows, err := DB.Query(`
+		SELECT id, title, description, quest_type, target_count, reward_dem, active
+		FROM quest_definitions ORDER BY id ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var list []*QuestDefinition
+	for rows.Next() {
+		q := &QuestDefinition{}
+		rows.Scan(&q.ID, &q.Title, &q.Description, &q.QuestType, &q.TargetCount, &q.RewardDEM, &q.Active)
+		list = append(list, q)
+	}
+	return list, nil
+}
+
+func GetActiveQuests() ([]*QuestDefinition, error) {
+	rows, err := DB.Query(`
+		SELECT id, title, description, quest_type, target_count, reward_dem, active
+		FROM quest_definitions WHERE active = TRUE ORDER BY id ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var list []*QuestDefinition
+	for rows.Next() {
+		q := &QuestDefinition{}
+		rows.Scan(&q.ID, &q.Title, &q.Description, &q.QuestType, &q.TargetCount, &q.RewardDEM, &q.Active)
+		list = append(list, q)
+	}
+	return list, nil
+}
+
+func CreateQuest(title, description, questType string, targetCount int, rewardDEM float64) (*QuestDefinition, error) {
+	q := &QuestDefinition{}
+	err := DB.QueryRow(`
+		INSERT INTO quest_definitions (title, description, quest_type, target_count, reward_dem)
+		VALUES ($1, $2, $3, $4, $5) RETURNING id, title, description, quest_type, target_count, reward_dem, active`,
+		title, description, questType, targetCount, rewardDEM,
+	).Scan(&q.ID, &q.Title, &q.Description, &q.QuestType, &q.TargetCount, &q.RewardDEM, &q.Active)
+	return q, err
+}
+
+func UpdateQuest(id int64, title, description string, targetCount int, rewardDEM float64, active bool) error {
+	_, err := DB.Exec(`
+		UPDATE quest_definitions
+		SET title=$2, description=$3, target_count=$4, reward_dem=$5, active=$6
+		WHERE id=$1`,
+		id, title, description, targetCount, rewardDEM, active)
+	return err
+}
+
+func DeleteQuest(id int64) error {
+	_, err := DB.Exec(`DELETE FROM quest_definitions WHERE id = $1`, id)
+	return err
+}
+
+func GetUserQuestProgress(address string) ([]*QuestProgress, error) {
+	rows, err := DB.Query(`
+		SELECT qd.id, qd.title, qd.description, qd.quest_type, qd.target_count, qd.reward_dem,
+		       COALESCE(qp.progress, 0), COALESCE(qp.completed, FALSE), COALESCE(qp.rewarded, FALSE)
+		FROM quest_definitions qd
+		LEFT JOIN quest_progress qp ON qd.id = qp.quest_id AND qp.address = $1
+		WHERE qd.active = TRUE
+		ORDER BY qd.id ASC`, address)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var list []*QuestProgress
+	for rows.Next() {
+		qp := &QuestProgress{}
+		rows.Scan(&qp.QuestID, &qp.Title, &qp.Description, &qp.QuestType,
+			&qp.TargetCount, &qp.RewardDEM, &qp.Progress, &qp.Completed, &qp.Rewarded)
+		list = append(list, qp)
+	}
+	return list, nil
+}
+
+// Görev ilerlemesini günceller; tamamlandıysa ödülü bekler (claim ile alınır)
+func UpdateQuestProgress(address string, questID int64, newProgress int) error {
+	var targetCount int
+	err := DB.QueryRow(`SELECT target_count FROM quest_definitions WHERE id = $1`, questID).Scan(&targetCount)
+	if err != nil {
+		return err
+	}
+	completed := newProgress >= targetCount
+	var completedAt interface{}
+	if completed {
+		completedAt = time.Now()
+	}
+	_, err = DB.Exec(`
+		INSERT INTO quest_progress (address, quest_id, progress, completed, completed_at)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (address, quest_id) DO UPDATE
+		SET progress = GREATEST(quest_progress.progress, $3),
+		    completed = (GREATEST(quest_progress.progress, $3) >= $6),
+		    completed_at = CASE WHEN quest_progress.completed = FALSE AND (GREATEST(quest_progress.progress, $3) >= $6) THEN NOW() ELSE quest_progress.completed_at END`,
+		address, questID, newProgress, completed, completedAt, targetCount)
+	return err
+}
+
+// Ödül al (claim)
+func ClaimQuestReward(address string, questID int64) (float64, error) {
+	tx, err := DB.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	var rewardDEM float64
+	var completed, rewarded bool
+	err = tx.QueryRow(`
+		SELECT qd.reward_dem, qp.completed, qp.rewarded
+		FROM quest_progress qp
+		JOIN quest_definitions qd ON qd.id = qp.quest_id
+		WHERE qp.address = $1 AND qp.quest_id = $2
+		FOR UPDATE`, address, questID).
+		Scan(&rewardDEM, &completed, &rewarded)
+	if err != nil {
+		return 0, fmt.Errorf("görev bulunamadı")
+	}
+	if !completed {
+		return 0, fmt.Errorf("görev henüz tamamlanmadı")
+	}
+	if rewarded {
+		return 0, fmt.Errorf("ödül zaten alındı")
+	}
+
+	// Ödülü işaretle
+	_, err = tx.Exec(`UPDATE quest_progress SET rewarded = TRUE WHERE address = $1 AND quest_id = $2`, address, questID)
+	if err != nil {
+		return 0, err
+	}
+
+	// Bakiyeye ekle
+	_, err = tx.Exec(`
+		INSERT INTO wallets (address, balance) VALUES ($1, $2)
+		ON CONFLICT (address) DO UPDATE SET balance = wallets.balance + $2, updated_at = NOW()`,
+		address, rewardDEM)
+	if err != nil {
+		return 0, err
+	}
+
+	return rewardDEM, tx.Commit()
+}
+
+// Davet görev ilerlemesini günceller (referral oluşturulduğunda çağrılır)
+func updateInviteQuestProgress(referrerAddr string) {
+	count, err := GetReferralCount(referrerAddr)
+	if err != nil {
+		return
+	}
+	// Tüm invite görevlerini bul ve güncelle
+	rows, err := DB.Query(`SELECT id FROM quest_definitions WHERE quest_type = 'invite' AND active = TRUE`)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var questID int64
+		rows.Scan(&questID)
+		UpdateQuestProgress(referrerAddr, questID, count)
+	}
+}

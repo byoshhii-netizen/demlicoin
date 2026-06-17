@@ -3,6 +3,7 @@ package api
 import (
 	"demcoin/blockchain"
 	"demcoin/console"
+	"demcoin/db"
 	"demcoin/p2p"
 	"demcoin/wallet"
 	"encoding/json"
@@ -10,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -47,6 +49,24 @@ type storeIface interface {
 	GetTopList(limit int) ([]map[string]interface{}, error)
 	GetAllWalletsAdmin() ([]map[string]interface{}, error)
 	GetRecentTrades(limit int) ([]map[string]interface{}, error)
+	// IP kontrol
+	GetIPWalletCount(ip string) (int, error)
+	RegisterWalletIP(address, ip string) error
+	GetAllIPRegistrations() ([]map[string]interface{}, error)
+	GetWalletsByIP(ip string) ([]string, error)
+	// Davet
+	IsValidReferralCode(code string) bool
+	CreateReferral(referrer, invited string) error
+	GetReferralCount(address string) (int, error)
+	GetReferrerOf(address string) (string, error)
+	// Görevler
+	GetAllQuests() ([]*db.QuestDefinition, error)
+	GetActiveQuests() ([]*db.QuestDefinition, error)
+	CreateQuest(title, desc, qtype string, target int, reward float64) (*db.QuestDefinition, error)
+	UpdateQuest(id int64, title, desc string, target int, reward float64, active bool) error
+	DeleteQuest(id int64) error
+	GetUserQuestProgress(address string) ([]*db.QuestProgress, error)
+	ClaimQuestReward(address string, questID int64) (float64, error)
 }
 
 func NewServer(chain *blockchain.Chain, hub *p2p.Hub, con *console.Console, store storeIface) *Server {
@@ -92,6 +112,19 @@ func (s *Server) setupRoutes() {
 	s.router.HandleFunc("/api/mining/status", s.handleMiningStatus).Methods("GET")
 	s.router.HandleFunc("/api/mining/mempool", s.handleMempool).Methods("GET")
 	s.router.HandleFunc("/api/mining/stakes", s.handleAllStakes).Methods("GET")
+	// Davet ve kayıt
+	s.router.HandleFunc("/api/wallet/register", s.handleRegisterWallet).Methods("POST")
+	s.router.HandleFunc("/api/referral/info", s.handleReferralInfo).Methods("GET")
+	// Görevler
+	s.router.HandleFunc("/api/quests", s.handleGetQuests).Methods("GET")
+	s.router.HandleFunc("/api/quests/claim", s.handleClaimQuest).Methods("POST")
+	// Admin - IP
+	s.router.HandleFunc("/api/admin/ip-list", s.handleAdminIPList).Methods("GET")
+	// Admin - Görev yönetimi
+	s.router.HandleFunc("/api/admin/quests", s.handleAdminGetQuests).Methods("GET")
+	s.router.HandleFunc("/api/admin/quests/create", s.handleAdminCreateQuest).Methods("POST")
+	s.router.HandleFunc("/api/admin/quests/update", s.handleAdminUpdateQuest).Methods("POST")
+	s.router.HandleFunc("/api/admin/quests/delete", s.handleAdminDeleteQuest).Methods("POST")
 	s.router.PathPrefix("/").Handler(http.FileServer(http.Dir("./public")))
 }
 
@@ -622,6 +655,285 @@ func (s *Server) handleAllStakes(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	jsonOK(w, result)
+}
+
+// getClientIP: gerçek IP'yi alır (proxy/nginx arkasında da çalışır)
+func getClientIP(r *http.Request) string {
+	// X-Forwarded-For başlığı (Railway, nginx vb.)
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		parts := strings.Split(xff, ",")
+		ip := strings.TrimSpace(parts[0])
+		if ip != "" {
+			return ip
+		}
+	}
+	// X-Real-IP başlığı
+	if xri := r.Header.Get("X-Real-IP"); xri != "" {
+		return strings.TrimSpace(xri)
+	}
+	// Doğrudan bağlantı
+	ip := r.RemoteAddr
+	if idx := strings.LastIndex(ip, ":"); idx != -1 {
+		ip = ip[:idx]
+	}
+	return strings.Trim(ip, "[]")
+}
+
+// ─── Cüzdan Kayıt (IP Kontrol + Davet) ──────────────────────────────────────
+
+func (s *Server) handleRegisterWallet(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ReferralCode string `json:"referral_code"` // boş olabilir
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+
+	// Yeni cüzdan üret
+	kp, err := wallet.Generate()
+	if err != nil {
+		jsonErr(w, "Cüzdan oluşturulamadı", 500)
+		return
+	}
+
+	// IP kontrolü — bir IP'den max 3 cüzdan
+	clientIP := getClientIP(r)
+	const maxPerIP = 3
+	count, err := s.store.GetIPWalletCount(clientIP)
+	if err != nil {
+		jsonErr(w, "IP kontrol hatası", 500)
+		return
+	}
+	if count >= maxPerIP {
+		jsonErr(w, fmt.Sprintf("Bu IP adresinden zaten %d cüzdan kayıtlı. Mevcut hesabınızı kullanın.", maxPerIP), 429)
+		return
+	}
+
+	// Davet kodu kontrolü
+	var referralValid bool
+	referralCode := strings.TrimSpace(req.ReferralCode)
+	if referralCode != "" {
+		if !s.store.IsValidReferralCode(referralCode) {
+			jsonErr(w, "Geçersiz davet kodu. Lütfen doğru bir cüzdan adresi girin.", 400)
+			return
+		}
+		referralValid = true
+	}
+
+	// Cüzdanı blockchain'de oluştur
+	s.chain.GetOrCreateWallet(kp.Address)
+
+	// IP kaydını kaydet
+	if err := s.store.RegisterWalletIP(kp.Address, clientIP); err != nil {
+		log.Printf("IP kayıt hatası: %v", err)
+	}
+
+	// Davet ilişkisini kaydet
+	if referralValid && referralCode != kp.Address {
+		if err := s.store.CreateReferral(referralCode, kp.Address); err != nil {
+			log.Printf("Referral kayıt hatası: %v", err)
+		}
+	}
+
+	resp := map[string]interface{}{
+		"address":        kp.Address,
+		"priv_key":       wallet.PrivKeyToHex(kp.PrivateKey),
+		"pub_key":        wallet.PubKeyToHex(kp.PublicKey),
+		"referral_used":  referralValid,
+		"ip_slot_used":   count + 1,
+		"ip_slots_left":  maxPerIP - count - 1,
+	}
+	jsonOK(w, resp)
+}
+
+// ─── Referral Bilgisi ────────────────────────────────────────────────────────
+
+func (s *Server) handleReferralInfo(w http.ResponseWriter, r *http.Request) {
+	address := r.URL.Query().Get("address")
+	if address == "" {
+		jsonErr(w, "Adres gerekli", 400)
+		return
+	}
+	count, _ := s.store.GetReferralCount(address)
+	referrer, _ := s.store.GetReferrerOf(address)
+	jsonOK(w, map[string]interface{}{
+		"address":       address,
+		"invited_count": count,
+		"referral_code": address, // kendi adresi davet kodu olarak kullanılır
+		"referred_by":   referrer,
+	})
+}
+
+// ─── Görevler (Kullanıcı) ────────────────────────────────────────────────────
+
+func (s *Server) handleGetQuests(w http.ResponseWriter, r *http.Request) {
+	address := r.URL.Query().Get("address")
+	if address == "" {
+		// Adres yoksa sadece tanımları döndür
+		quests, err := s.store.GetActiveQuests()
+		if err != nil {
+			jsonErr(w, err.Error(), 500)
+			return
+		}
+		jsonOK(w, quests)
+		return
+	}
+	progress, err := s.store.GetUserQuestProgress(address)
+	if err != nil {
+		jsonErr(w, err.Error(), 500)
+		return
+	}
+	jsonOK(w, progress)
+}
+
+func (s *Server) handleClaimQuest(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Address   string `json:"address"`
+		QuestID   int64  `json:"quest_id"`
+		Signature string `json:"signature"`
+		PubKey    string `json:"pub_key"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+
+	pub, err := wallet.HexToPubKey(req.PubKey)
+	if err != nil {
+		jsonErr(w, "Geçersiz public key", 400)
+		return
+	}
+	sigData := req.Address + "CLAIM" + strconv.FormatInt(req.QuestID, 10)
+	if !wallet.Verify(pub, sigData, req.Signature) {
+		jsonErr(w, "GEÇERSİZ_İMZA", 401)
+		return
+	}
+
+	reward, err := s.store.ClaimQuestReward(req.Address, req.QuestID)
+	if err != nil {
+		jsonErr(w, err.Error(), 400)
+		return
+	}
+
+	// In-memory bakiyeyi güncelle
+	s.chain.GetOrCreateWallet(req.Address)
+
+	jsonOK(w, map[string]interface{}{
+		"ok":         true,
+		"reward_dem": reward,
+		"mesaj":      fmt.Sprintf("%.2f DEM ödülü cüzdanınıza aktarıldı!", reward),
+	})
+}
+
+// ─── Admin - IP Listesi ──────────────────────────────────────────────────────
+
+func (s *Server) handleAdminIPList(w http.ResponseWriter, r *http.Request) {
+	imza := r.URL.Query().Get("imza")
+	if !s.console.DogrulaKurucu(imza, "AdminIPList") {
+		jsonErr(w, "YETKİSİZ", 403)
+		return
+	}
+	list, err := s.store.GetAllIPRegistrations()
+	if err != nil {
+		jsonErr(w, err.Error(), 500)
+		return
+	}
+	// IP'lere göre grupla
+	ipMap := make(map[string][]map[string]interface{})
+	for _, item := range list {
+		ip := item["ip_address"].(string)
+		ipMap[ip] = append(ipMap[ip], item)
+	}
+	type ipGroup struct {
+		IP      string                   `json:"ip"`
+		Count   int                      `json:"count"`
+		Wallets []map[string]interface{} `json:"wallets"`
+	}
+	var groups []ipGroup
+	for ip, wallets := range ipMap {
+		groups = append(groups, ipGroup{IP: ip, Count: len(wallets), Wallets: wallets})
+	}
+	jsonOK(w, map[string]interface{}{
+		"toplam_kayit": len(list),
+		"ip_gruplari":  groups,
+		"kayitlar":     list,
+	})
+}
+
+// ─── Admin - Görev Yönetimi ──────────────────────────────────────────────────
+
+func (s *Server) handleAdminGetQuests(w http.ResponseWriter, r *http.Request) {
+	imza := r.URL.Query().Get("imza")
+	if !s.console.DogrulaKurucu(imza, "AdminQuests") {
+		jsonErr(w, "YETKİSİZ", 403)
+		return
+	}
+	quests, err := s.store.GetAllQuests()
+	if err != nil {
+		jsonErr(w, err.Error(), 500)
+		return
+	}
+	jsonOK(w, quests)
+}
+
+func (s *Server) handleAdminCreateQuest(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Imza        string  `json:"imza"`
+		Title       string  `json:"title"`
+		Description string  `json:"description"`
+		QuestType   string  `json:"quest_type"`
+		TargetCount int     `json:"target_count"`
+		RewardDEM   float64 `json:"reward_dem"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	if !s.console.DogrulaKurucu(req.Imza, "CreateQuest") {
+		jsonErr(w, "YETKİSİZ", 403)
+		return
+	}
+	if req.Title == "" || req.TargetCount <= 0 || req.RewardDEM <= 0 {
+		jsonErr(w, "Geçersiz görev bilgisi", 400)
+		return
+	}
+	q, err := s.store.CreateQuest(req.Title, req.Description, req.QuestType, req.TargetCount, req.RewardDEM)
+	if err != nil {
+		jsonErr(w, err.Error(), 500)
+		return
+	}
+	jsonOK(w, q)
+}
+
+func (s *Server) handleAdminUpdateQuest(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Imza        string  `json:"imza"`
+		ID          int64   `json:"id"`
+		Title       string  `json:"title"`
+		Description string  `json:"description"`
+		TargetCount int     `json:"target_count"`
+		RewardDEM   float64 `json:"reward_dem"`
+		Active      bool    `json:"active"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	if !s.console.DogrulaKurucu(req.Imza, "UpdateQuest") {
+		jsonErr(w, "YETKİSİZ", 403)
+		return
+	}
+	if err := s.store.UpdateQuest(req.ID, req.Title, req.Description, req.TargetCount, req.RewardDEM, req.Active); err != nil {
+		jsonErr(w, err.Error(), 500)
+		return
+	}
+	jsonOK(w, map[string]bool{"ok": true})
+}
+
+func (s *Server) handleAdminDeleteQuest(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Imza string `json:"imza"`
+		ID   int64  `json:"id"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	if !s.console.DogrulaKurucu(req.Imza, "DeleteQuest") {
+		jsonErr(w, "YETKİSİZ", 403)
+		return
+	}
+	if err := s.store.DeleteQuest(req.ID); err != nil {
+		jsonErr(w, err.Error(), 500)
+		return
+	}
+	jsonOK(w, map[string]bool{"ok": true})
 }
 
 func jsonOK(w http.ResponseWriter, data interface{}) {

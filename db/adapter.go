@@ -69,3 +69,34 @@ func (s *StoreAdapter) GetAllWalletsAdmin() ([]map[string]interface{}, error) {
 func (s *StoreAdapter) GetRecentTrades(limit int) ([]map[string]interface{}, error) {
 	return GetRecentTrades(limit)
 }
+
+// IP Kayıt
+func (s *StoreAdapter) GetIPWalletCount(ip string) (int, error)        { return GetIPWalletCount(ip) }
+func (s *StoreAdapter) RegisterWalletIP(address, ip string) error      { return RegisterWalletIP(address, ip) }
+func (s *StoreAdapter) GetAllIPRegistrations() ([]map[string]interface{}, error) {
+	return GetAllIPRegistrations()
+}
+func (s *StoreAdapter) GetWalletsByIP(ip string) ([]string, error) { return GetWalletsByIP(ip) }
+
+// Davet
+func (s *StoreAdapter) IsValidReferralCode(code string) bool              { return IsValidReferralCode(code) }
+func (s *StoreAdapter) CreateReferral(referrer, invited string) error     { return CreateReferral(referrer, invited) }
+func (s *StoreAdapter) GetReferralCount(address string) (int, error)      { return GetReferralCount(address) }
+func (s *StoreAdapter) GetReferrerOf(address string) (string, error)      { return GetReferrerOf(address) }
+
+// Görevler
+func (s *StoreAdapter) GetAllQuests() ([]*QuestDefinition, error) { return GetAllQuests() }
+func (s *StoreAdapter) GetActiveQuests() ([]*QuestDefinition, error) { return GetActiveQuests() }
+func (s *StoreAdapter) CreateQuest(title, desc, qtype string, target int, reward float64) (*QuestDefinition, error) {
+	return CreateQuest(title, desc, qtype, target, reward)
+}
+func (s *StoreAdapter) UpdateQuest(id int64, title, desc string, target int, reward float64, active bool) error {
+	return UpdateQuest(id, title, desc, target, reward, active)
+}
+func (s *StoreAdapter) DeleteQuest(id int64) error { return DeleteQuest(id) }
+func (s *StoreAdapter) GetUserQuestProgress(address string) ([]*QuestProgress, error) {
+	return GetUserQuestProgress(address)
+}
+func (s *StoreAdapter) ClaimQuestReward(address string, questID int64) (float64, error) {
+	return ClaimQuestReward(address, questID)
+}

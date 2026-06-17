@@ -21,6 +21,8 @@ function switchPage(name,btn){
   if(name==='mining')loadMiningData();
   if(name==='explorer')loadExplorer();
   if(name==='admin')loadAdminWallets();
+  if(name==='quests')loadQuests();
+  if(name==='wallet')loadReferralInfo();
 }
 
 function openWalletModal(){
@@ -28,17 +30,20 @@ function openWalletModal(){
   const addrEl=document.getElementById('modal-current-addr');
   if(STATE.wallet){info.style.display='block';addrEl.textContent=STATE.wallet.address;}
   else info.style.display='none';
-  const area=document.getElementById('wallet-new-result-area');
-  if(area){area.style.display='none';area.innerHTML='';}
-  const btnNew=document.getElementById('btn-new-wallet');
-  if(btnNew)btnNew.style.display='flex';
-  const pk=document.getElementById('import-privkey');
-  if(pk)pk.value='';
-  const err=document.getElementById('wallet-import-error');
-  if(err)err.textContent='';
   document.getElementById('wallet-modal').style.display='flex';
 }
-function closeWalletModal(){document.getElementById('wallet-modal').style.display='none';}
+function closeWalletModal(){
+  document.getElementById('wallet-modal').style.display='none';
+  // Formu sıfırla
+  const refArea = document.getElementById('referral-input-area');
+  if(refArea) refArea.style.display='block';
+  const newBtn = document.getElementById('btn-new-wallet');
+  if(newBtn) newBtn.style.display='block';
+  const newArea = document.getElementById('wallet-new-result-area');
+  if(newArea){newArea.style.display='none';newArea.innerHTML='';}
+  const refInput = document.getElementById('new-wallet-referral');
+  if(refInput) refInput.value='';
+}
 
 function logoutWallet(){
   STATE.wallet=null;STATE.isAdmin=false;
@@ -56,17 +61,32 @@ function logoutWallet(){
 }
 
 async function generateWallet(){
-  const data=await api('/api/wallet/new');
+  const referralCode = document.getElementById('new-wallet-referral').value.trim();
+  const body = referralCode ? JSON.stringify({referral_code: referralCode}) : JSON.stringify({});
+  const data = await api('/api/wallet/register', {method:'POST', body});
+  if(data.hata){
+    showFloat(data.hata, 'err');
+    return;
+  }
   const area=document.getElementById('wallet-new-result-area');
   area.style.display='block';
+  // Referral input gizle
+  document.getElementById('referral-input-area').style.display='none';
+  const ipInfo = data.ip_slots_left !== undefined
+    ? `<div style="font-size:10px;color:var(--text-muted);margin-bottom:8px;"><i class="fa-solid fa-network-wired"></i> IP slotu: ${data.ip_slot_used}/3 kullanıldı</div>`
+    : '';
+  const refInfo = data.referral_used
+    ? `<div style="font-size:10px;color:var(--green);margin-bottom:8px;"><i class="fa-solid fa-check"></i> Davet kodu uygulandı</div>`
+    : '';
   area.innerHTML=`
     <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px;margin-bottom:10px;">
+      ${ipInfo}${refInfo}
       <div style="font-size:9px;color:var(--text-muted);margin-bottom:3px;">ADRES</div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--green);word-break:break-all;margin-bottom:8px;">${data.address}</div>
-      <div style="font-size:9px;color:var(--red);margin-bottom:3px;">PRIVATE KEY — KIMSEYLE PAYLASMA</div>
+      <div style="font-size:9px;color:var(--red);margin-bottom:3px;">PRIVATE KEY — KİMSEYLE PAYLAŞMA</div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);word-break:break-all;margin-bottom:10px;">${data.priv_key}</div>
       <button onclick="loginWith('${data.priv_key}','${data.address}','${data.pub_key}')" style="width:100%;background:var(--green);border:none;border-radius:var(--radius-sm);color:#000;padding:10px;font-size:12px;font-weight:700;cursor:pointer;">
-        Bu Cuzdan ile Giris Yap
+        Bu Cüzdan ile Giriş Yap
       </button>
     </div>`;
   document.getElementById('btn-new-wallet').style.display='none';
@@ -74,12 +94,9 @@ async function generateWallet(){
 
 async function importWallet(){
   const pk=document.getElementById('import-privkey').value.trim();
-  const errEl=document.getElementById('wallet-import-error');
-  if(!pk){errEl.textContent='Private key bos olamaz';return;}
-  errEl.textContent='Yukleniyor...';
+  if(!pk){showFloat('Private key boş','err');return;}
   const r=await api('/api/wallet/import',{method:'POST',body:JSON.stringify({priv_key:pk})});
-  if(r.hata){errEl.textContent='Gecersiz key: '+r.hata;return;}
-  errEl.textContent='';
+  if(r.hata){showFloat('Geçersiz key: '+r.hata,'err');return;}
   loginWith(pk,r.address,r.pub_key);
 }
 
@@ -94,6 +111,7 @@ function loginWith(privKey,address,pubKey){
   document.getElementById('wallet-mini').style.display='flex';
   closeWalletModal();
   connectWS();refreshBalance();checkAdmin(address);
+  loadReferralInfo();
 }
 
 async function checkAdmin(address){
@@ -102,7 +120,7 @@ async function checkAdmin(address){
     STATE.isAdmin=true;
     document.getElementById('nav-admin').style.display='flex';
     document.getElementById('page-admin').style.display='';
-    loadPriceSettings();loadAdminWallets();
+    loadPriceSettings();loadAdminWallets();loadAdminIPList();loadAdminQuests();
   }
 }
 
@@ -616,4 +634,194 @@ function ltab(name, btn) {
   const el = document.getElementById('lt-' + name);
   if (el) el.classList.add('active');
   if (btn) btn.classList.add('active');
+}
+
+// ─── Davet (Referral) ────────────────────────────────────────────────────────
+
+async function loadReferralInfo(){
+  if(!STATE.wallet) return;
+  const myCode = document.getElementById('my-referral-code');
+  if(myCode) myCode.textContent = STATE.wallet.address;
+  const d = await api('/api/referral/info?address='+encodeURIComponent(STATE.wallet.address));
+  if(d.invited_count !== undefined){
+    const el = document.getElementById('ref-invited-count');
+    if(el) el.textContent = d.invited_count;
+  }
+}
+
+function copyReferralCode(){
+  if(!STATE.wallet){showFloat('Önce cüzdan bağlayın','err');return;}
+  navigator.clipboard.writeText(STATE.wallet.address).then(()=>{
+    showFloat('Davet kodu kopyalandı!','ok');
+  }).catch(()=>{
+    showFloat('Kopyalanamadı — adresi elle kopyalayın','err');
+  });
+}
+
+// ─── Görevler ────────────────────────────────────────────────────────────────
+
+async function loadQuests(){
+  const container = document.getElementById('quests-container');
+  if(!container) return;
+  if(!STATE.wallet){
+    container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted);"><i class="fa-solid fa-wallet"></i><br><br>Görevleri görmek için cüzdan bağlayın</div>';
+    return;
+  }
+  container.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:20px;text-align:center;"><i class="fa-solid fa-spinner fa-spin"></i> Yükleniyor...</div>';
+  const list = await api('/api/quests?address='+encodeURIComponent(STATE.wallet.address));
+  if(!Array.isArray(list) || list.length === 0){
+    container.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:20px;text-align:center;">Aktif görev yok</div>';
+    return;
+  }
+  container.innerHTML = list.map(q => {
+    const pct = Math.min(100, Math.round((q.progress / q.target_count) * 100));
+    const canClaim = q.completed && !q.rewarded;
+    const rewarded = q.rewarded;
+    const statusBadge = rewarded
+      ? `<span style="background:var(--green-dim);color:var(--green);font-size:10px;padding:2px 8px;border-radius:20px;"><i class="fa-solid fa-check"></i> Alındı</span>`
+      : q.completed
+        ? `<span style="background:var(--gold-dim);color:var(--gold);font-size:10px;padding:2px 8px;border-radius:20px;"><i class="fa-solid fa-gift"></i> Ödül Hazır</span>`
+        : `<span style="background:var(--surface2);color:var(--text-muted);font-size:10px;padding:2px 8px;border-radius:20px;">${q.progress}/${q.target_count}</span>`;
+    return `
+    <div class="card" style="padding:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+        <div>
+          <div style="font-weight:600;font-size:14px;">${esc(q.title)}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${esc(q.description)}</div>
+        </div>
+        <div style="text-align:right;">
+          ${statusBadge}
+          <div style="font-size:13px;font-weight:700;color:var(--gold);margin-top:4px;">+${q.reward_dem} DEM</div>
+        </div>
+      </div>
+      <div style="background:var(--surface2);border-radius:20px;height:6px;overflow:hidden;margin-bottom:10px;">
+        <div style="background:${q.completed?'var(--green)':'var(--gold)'};width:${pct}%;height:100%;border-radius:20px;transition:width .3s;"></div>
+      </div>
+      ${canClaim ? `<button class="btn-gold" onclick="claimQuest(${q.quest_id})" style="width:100%;"><i class="fa-solid fa-gift"></i> Ödülü Al (+${q.reward_dem} DEM)</button>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function claimQuest(questId){
+  if(!STATE.wallet){openWalletModal();return;}
+  const sigData = STATE.wallet.address + 'CLAIM' + questId;
+  const ir = await api('/api/admin/imza-olustur',{method:'POST',body:JSON.stringify({priv_key:STATE.wallet.privKey,veri:sigData})});
+  if(ir.hata){showFloat('İmza hatası','err');return;}
+  const r = await api('/api/quests/claim',{method:'POST',body:JSON.stringify({
+    address: STATE.wallet.address,
+    quest_id: questId,
+    signature: ir.imza,
+    pub_key: STATE.wallet.pubKey
+  })});
+  if(r.hata){showFloat(r.hata,'err');}
+  else{
+    showFloat(r.mesaj,'ok');
+    showTxNotify('Görev Ödülü!', '+'+r.reward_dem+' DEM kazandın');
+    refreshBalance();
+    loadQuests();
+  }
+}
+
+// ─── Admin - IP Listesi ───────────────────────────────────────────────────────
+
+async function loadAdminIPList(){
+  if(!STATE.wallet||!STATE.isAdmin)return;
+  const ir = await api('/api/admin/imza-olustur',{method:'POST',body:JSON.stringify({priv_key:STATE.wallet.privKey,veri:'AdminIPList'})});
+  if(ir.hata)return;
+  const d = await api('/api/admin/ip-list?imza='+encodeURIComponent(ir.imza));
+  const tbody = document.getElementById('admin-ip-body');
+  const totalEl = document.getElementById('ip-total-count');
+  if(!d||d.hata){if(tbody)tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--red);">Yükleme hatası</td></tr>';return;}
+  if(totalEl) totalEl.textContent = d.toplam_kayit||0;
+  if(!Array.isArray(d.kayitlar)||d.kayitlar.length===0){
+    tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px;">Henüz kayıt yok</td></tr>';return;
+  }
+  // IP'ye göre grupla
+  const ipCount = {};
+  d.kayitlar.forEach(r=>{ ipCount[r.ip_address]=(ipCount[r.ip_address]||0)+1; });
+  tbody.innerHTML = d.kayitlar.map(r=>`
+    <tr>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--gold);">${r.ip_address}</td>
+      <td style="text-align:center;"><span style="background:${ipCount[r.ip_address]>=3?'var(--red-dim)':'var(--surface2)'};color:${ipCount[r.ip_address]>=3?'var(--red)':'var(--text-muted)'};padding:2px 8px;border-radius:20px;font-size:10px;">${ipCount[r.ip_address]}/3</span></td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);">${r.address}</td>
+      <td style="font-family:'JetBrains Mono',monospace;color:var(--green);font-size:11px;">${parseFloat(r.balance||0).toFixed(2)} DEM</td>
+      <td style="font-size:10px;color:var(--text-muted);">${new Date(r.registered_at).toLocaleString('tr-TR')}</td>
+    </tr>`).join('');
+}
+
+// ─── Admin - Görev Yönetimi ───────────────────────────────────────────────────
+
+async function loadAdminQuests(){
+  if(!STATE.wallet||!STATE.isAdmin)return;
+  const ir = await api('/api/admin/imza-olustur',{method:'POST',body:JSON.stringify({priv_key:STATE.wallet.privKey,veri:'AdminQuests'})});
+  if(ir.hata)return;
+  const list = await api('/api/admin/quests?imza='+encodeURIComponent(ir.imza));
+  const container = document.getElementById('admin-quests-list');
+  if(!Array.isArray(list)||list.length===0){
+    container.innerHTML='<div style="color:var(--text-muted);font-size:12px;padding:10px;">Henüz görev yok</div>';return;
+  }
+  container.innerHTML = '<div style="font-size:11px;color:var(--gold);font-weight:600;margin-bottom:8px;">Mevcut Görevler</div>' +
+    list.map(q=>`
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div>
+          <span style="font-weight:600;font-size:12px;">${esc(q.title)}</span>
+          <span style="font-size:10px;color:var(--text-muted);margin-left:8px;">[${q.quest_type}]</span>
+          <span style="font-size:10px;color:${q.active?'var(--green)':'var(--red)'};margin-left:8px;">${q.active?'Aktif':'Pasif'}</span>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <span style="font-size:12px;font-weight:700;color:var(--gold);">+${q.reward_dem} DEM</span>
+          <button class="aw-btn" onclick="adminToggleQuest(${q.id},'${esc(q.title)}','${esc(q.description)}',${q.target_count},${q.reward_dem},${!q.active})" style="font-size:10px;padding:4px 8px;">
+            ${q.active?'Pasife Al':'Aktife Al'}
+          </button>
+          <button class="aw-btn ban" onclick="adminDeleteQuest(${q.id})" style="font-size:10px;padding:4px 8px;">Sil</button>
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--text-muted);">${esc(q.description)} — Hedef: ${q.target_count}</div>
+    </div>`).join('');
+}
+
+async function adminCreateQuest(){
+  if(!STATE.wallet)return;
+  const title = document.getElementById('nq-title').value.trim();
+  const desc = document.getElementById('nq-desc').value.trim();
+  const qtype = document.getElementById('nq-type').value;
+  const target = parseInt(document.getElementById('nq-target').value);
+  const reward = parseFloat(document.getElementById('nq-reward').value);
+  if(!title||isNaN(target)||target<1||isNaN(reward)||reward<=0){
+    setResult('admin-quest-result','Geçersiz görev bilgisi','err');return;
+  }
+  const ir = await api('/api/admin/imza-olustur',{method:'POST',body:JSON.stringify({priv_key:STATE.wallet.privKey,veri:'CreateQuest'})});
+  if(ir.hata){setResult('admin-quest-result','İmza hatası','err');return;}
+  const r = await api('/api/admin/quests/create',{method:'POST',body:JSON.stringify({
+    imza:ir.imza, title, description:desc, quest_type:qtype, target_count:target, reward_dem:reward
+  })});
+  if(r.hata){setResult('admin-quest-result',r.hata,'err');}
+  else{
+    setResult('admin-quest-result','Görev oluşturuldu: '+r.title,'ok');
+    document.getElementById('nq-title').value='';
+    document.getElementById('nq-desc').value='';
+    document.getElementById('nq-target').value='';
+    document.getElementById('nq-reward').value='';
+    loadAdminQuests();
+  }
+}
+
+async function adminToggleQuest(id, title, desc, target, reward, active){
+  if(!STATE.wallet)return;
+  const ir = await api('/api/admin/imza-olustur',{method:'POST',body:JSON.stringify({priv_key:STATE.wallet.privKey,veri:'UpdateQuest'})});
+  if(ir.hata)return;
+  await api('/api/admin/quests/update',{method:'POST',body:JSON.stringify({
+    imza:ir.imza, id, title, description:desc, target_count:target, reward_dem:reward, active
+  })});
+  loadAdminQuests();
+}
+
+async function adminDeleteQuest(id){
+  if(!STATE.wallet)return;
+  if(!confirm('Bu görevi silmek istediğinizden emin misiniz?'))return;
+  const ir = await api('/api/admin/imza-olustur',{method:'POST',body:JSON.stringify({priv_key:STATE.wallet.privKey,veri:'DeleteQuest'})});
+  if(ir.hata)return;
+  const r = await api('/api/admin/quests/delete',{method:'POST',body:JSON.stringify({imza:ir.imza,id})});
+  if(!r.hata) loadAdminQuests();
 }

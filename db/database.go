@@ -130,6 +130,57 @@ func Migrate() error {
 		`CREATE INDEX IF NOT EXISTS idx_transactions_to ON transactions(to_addr)`,
 		`CREATE INDEX IF NOT EXISTS idx_blocks_idx ON blocks(idx DESC)`,
 		`CREATE INDEX IF NOT EXISTS idx_chat_timestamp ON chat_messages(timestamp DESC)`,
+
+		// IP kayıt tablosu: bir IP'den max 3 cüzdan
+		`CREATE TABLE IF NOT EXISTS wallet_registrations (
+			id          BIGSERIAL PRIMARY KEY,
+			address     TEXT NOT NULL,
+			ip_address  TEXT NOT NULL,
+			registered_at TIMESTAMPTZ DEFAULT NOW()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_reg_ip ON wallet_registrations(ip_address)`,
+		`CREATE INDEX IF NOT EXISTS idx_reg_address ON wallet_registrations(address)`,
+
+		// Davet sistemi
+		`CREATE TABLE IF NOT EXISTS referrals (
+			id            BIGSERIAL PRIMARY KEY,
+			referrer_addr TEXT NOT NULL,
+			invited_addr  TEXT NOT NULL,
+			created_at    TIMESTAMPTZ DEFAULT NOW()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_ref_referrer ON referrals(referrer_addr)`,
+
+		// Görev tanımları (admin tarafından oluşturulur)
+		`CREATE TABLE IF NOT EXISTS quest_definitions (
+			id           BIGSERIAL PRIMARY KEY,
+			title        TEXT NOT NULL,
+			description  TEXT NOT NULL,
+			quest_type   TEXT NOT NULL,
+			target_count INT NOT NULL DEFAULT 1,
+			reward_dem   NUMERIC(30,8) NOT NULL DEFAULT 0,
+			active       BOOLEAN NOT NULL DEFAULT TRUE,
+			created_at   TIMESTAMPTZ DEFAULT NOW()
+		)`,
+
+		// Kullanıcı görev ilerlemesi
+		`CREATE TABLE IF NOT EXISTS quest_progress (
+			id           BIGSERIAL PRIMARY KEY,
+			address      TEXT NOT NULL,
+			quest_id     BIGINT REFERENCES quest_definitions(id) ON DELETE CASCADE,
+			progress     INT NOT NULL DEFAULT 0,
+			completed    BOOLEAN NOT NULL DEFAULT FALSE,
+			rewarded     BOOLEAN NOT NULL DEFAULT FALSE,
+			completed_at TIMESTAMPTZ,
+			UNIQUE(address, quest_id)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_qp_address ON quest_progress(address)`,
+
+		// Varsayılan görevler
+		`INSERT INTO quest_definitions (title, description, quest_type, target_count, reward_dem) VALUES
+			('İlk Davet', '1 kişiyi DemCoin''e davet et', 'invite', 1, 1),
+			('Davet Ustası', '5 kişiyi DemCoin''e davet et', 'invite', 5, 5),
+			('Sosyal Kelebek', '10 kişiyi DemCoin''e davet et', 'invite', 10, 15)
+		ON CONFLICT DO NOTHING`,
 	}
 
 	for _, q := range queries {
