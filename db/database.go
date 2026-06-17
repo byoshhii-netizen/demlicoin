@@ -95,11 +95,18 @@ func Migrate() error {
 			updated_at  TIMESTAMPTZ DEFAULT NOW()
 		)`,
 
-		`CREATE TABLE IF NOT EXISTS price_history (
-			id          BIGSERIAL PRIMARY KEY,
-			value       NUMERIC(30,8) NOT NULL,
-			recorded_at TIMESTAMPTZ DEFAULT NOW()
+		`CREATE TABLE IF NOT EXISTS site_content (
+			key         TEXT PRIMARY KEY,
+			value       TEXT NOT NULL,
+			updated_at  TIMESTAMPTZ DEFAULT NOW()
 		)`,
+
+		`INSERT INTO site_content (key, value) VALUES
+			('about_title', 'Biz Kimiz?'),
+			('about_body', 'Biz DemliCoin ekibi olarak çay içmeyi seviyor ve coin piyasasına rakip olarak gelmeyi hedefliyoruz. Sanılanın aksine bir meme coin değil başlı başına bir coin olmayı hedefliyoruz.'),
+			('about_mission', 'Misyonumuz: Güvenli, hızlı ve herkesin kullanabileceği bir blockchain altyapısı kurmak.'),
+			('about_vision', 'Vizyonumuz: DemCoin''i global ölçekte tanınan, gerçek değer yaratan bir dijital para birimi haline getirmek.')
+		ON CONFLICT (key) DO NOTHING`,
 
 		`CREATE TABLE IF NOT EXISTS network_state (
 			id           INT PRIMARY KEY DEFAULT 1,
@@ -115,7 +122,11 @@ func Migrate() error {
 			VALUES (1, FALSE, FALSE, 0, 0)
 			ON CONFLICT (id) DO NOTHING`,
 
-		`CREATE INDEX IF NOT EXISTS idx_transactions_from ON transactions(from_addr)`,
+		`CREATE TABLE IF NOT EXISTS price_history (
+			id          BIGSERIAL PRIMARY KEY,
+			value       NUMERIC(30,8) NOT NULL,
+			recorded_at TIMESTAMPTZ DEFAULT NOW()
+		)`,
 		`CREATE INDEX IF NOT EXISTS idx_transactions_to ON transactions(to_addr)`,
 		`CREATE INDEX IF NOT EXISTS idx_blocks_idx ON blocks(idx DESC)`,
 		`CREATE INDEX IF NOT EXISTS idx_chat_timestamp ON chat_messages(timestamp DESC)`,

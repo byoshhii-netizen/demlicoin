@@ -86,35 +86,6 @@ func (b *BotEngine) loop() {
 }
 
 func (b *BotEngine) sendBotMessage() {
-	botIdx := rand.Intn(len(BOT_ISIMLER))
-	botName := BOT_ISIMLER[botIdx]
-	botAddr := fmt.Sprintf("DEM_BOT_%03d", botIdx)
-
-	var msgs []string
-	price := b.price.GetCurrent()
-	hist := b.price.GetHistory()
-	if len(hist) >= 5 {
-		prev := hist[len(hist)-5].Value
-		if price > prev*1.005 {
-			msgs = BOT_MESAJLAR_YUKARI
-		} else if price < prev*0.995 {
-			msgs = BOT_MESAJLAR_ASAGI
-		} else {
-			msgs = BOT_MESAJLAR_NOTR
-		}
-	} else {
-		msgs = BOT_MESAJLAR_NOTR
-	}
-
-	content := msgs[rand.Intn(len(msgs))]
-	cm := &ChatMessage{
-		From:      botAddr,
-		Username:  botName,
-		Content:   content,
-		Timestamp: time.Now(),
-		TxHash:    fmt.Sprintf("0xbot%08x", rand.Uint32()),
-	}
-	b.hub.BroadcastChat(cm)
 }
 
 func (b *BotEngine) doBotTrade() {

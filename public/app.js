@@ -192,9 +192,13 @@ function deleteChatMsg(id){
 
 async function deleteChat(id){
   if(!STATE.wallet||!STATE.isAdmin)return;
-  const ir=await api('/api/admin/imza-olustur',{method:'POST',body:JSON.stringify({priv_key:STATE.wallet.privKey,veri:`DeleteChat:${id}`})});
-  if(ir.hata)return;
-  await api('/api/chat/delete',{method:'POST',body:JSON.stringify({imza:ir.imza,id})});
+  const idNum = parseInt(id);
+  const veri = 'DeleteChat:' + idNum;
+  const ir=await api('/api/admin/imza-olustur',{method:'POST',body:JSON.stringify({priv_key:STATE.wallet.privKey,veri})});
+  if(ir.hata){showFloat('İmza hatası','err');return;}
+  const r=await api('/api/chat/delete',{method:'POST',body:JSON.stringify({imza:ir.imza,id:idNum})});
+  if(r.hata){showFloat(r.hata,'err');}
+  else{deleteChatMsg(idNum);}
 }
 
 function addTradeItem(t){

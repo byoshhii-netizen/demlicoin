@@ -125,7 +125,9 @@ func (h *Hub) BroadcastChat(cm *blockchain.ChatMessage) {
 	h.mu.Unlock()
 
 	if h.store != nil {
-		go h.store.SaveChatMessage(cm)
+		if err := h.store.SaveChatMessage(cm); err != nil {
+			cm.ID = 0
+		}
 	}
 
 	msg := Message{Type: "CHAT", Payload: cm}
