@@ -7,8 +7,8 @@
   --red:#ef4444;--red-dim:rgba(239,68,68,.1);
   --blue:#3b82f6;--radius:10px;--radius-sm:7px;
 }
-html,body{height:100%;overflow:hidden;}
-body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;line-height:1.5;}
+html,body{height:100%;}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;line-height:1.5;overflow:hidden;}
 ::-webkit-scrollbar{width:3px;height:3px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
@@ -37,7 +37,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .nav-btn:hover{background:var(--surface2);color:var(--text);}
 .nav-btn.active{background:var(--gold-dim);color:var(--gold);}
 
-.page-wrap{position:fixed;left:60px;top:50px;right:0;bottom:0;overflow-y:auto;padding:12px;}
+.page-wrap{position:fixed;left:60px;top:50px;right:0;bottom:0;overflow-y:auto;padding:12px;-webkit-overflow-scrolling:touch;}
 .page{display:none;}
 .page.active{display:block;}
 .page-header{margin-bottom:14px;}
@@ -212,7 +212,6 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
   .dash-chart-card,.dash-chat-card,.dash-trades-card,.dash-blocks-card{grid-column:1;grid-row:auto;}
   .admin-page-grid{grid-template-columns:1fr;}
 }
-
 .mining-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
 .mining-status-card{grid-column:1/-1;}
 .mining-stats{display:flex;gap:0;flex-wrap:wrap;}
@@ -236,3 +235,70 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .pos-step p{font-size:11px;color:var(--text-muted);margin-top:3px;}
 .pos-step strong{font-size:12px;color:var(--text);}
 @media(max-width:700px){.mining-grid{grid-template-columns:1fr;}.mining-status-card{grid-column:1;}.pos-explainer{grid-template-columns:1fr;}.pos-step{border-right:none;}}
+
+@media(max-width:900px){
+  .dash-grid{grid-template-columns:1fr;gap:8px;}
+  .dash-chart-card,.dash-chat-card,.dash-trades-card,.dash-blocks-card{grid-column:1;grid-row:auto;}
+  .wallet-page-grid{grid-template-columns:1fr;}
+  .admin-page-grid{grid-template-columns:1fr;}
+  .mining-grid{grid-template-columns:1fr;}
+  .mining-status-card{grid-column:1;}
+  .pos-explainer{grid-template-columns:1fr;}
+  .pos-step{border-right:none;}
+  .header-ticker{display:none;}
+}
+
+@media(max-width:768px){
+  html,body{overflow:auto;}
+  .sidebar{
+    position:fixed;left:0;top:auto;bottom:0;right:0;width:100%;height:56px;
+    flex-direction:row;justify-content:space-around;align-items:center;
+    border-right:none;border-top:1px solid var(--border);padding:0;gap:0;z-index:200;
+  }
+  .nav-btn{width:auto;flex:1;height:56px;border-radius:0;flex-direction:column;gap:2px;font-size:9px;}
+  .nav-btn i{font-size:18px;}
+  .nav-btn span{font-size:9px;}
+  .page-wrap{left:0;bottom:56px;top:50px;padding:10px;}
+  .header{padding:0 10px;gap:8px;}
+  .header-left{gap:6px;}
+  .logo{font-size:14px;letter-spacing:1px;}
+  .header-right{gap:6px;}
+  .header-stat{display:none;}
+  .wallet-mini{display:none!important;}
+  .price-display{font-size:13px;}
+  .price-badge{font-size:10px;}
+  .card-header{padding:9px 11px;font-size:12px;}
+  .input-field{font-size:14px;padding:10px 11px;}
+  .btn-primary,.btn-outline,.btn-gold,.btn-danger,.btn-success{padding:11px 14px;font-size:13px;}
+  .btn-send{width:42px;height:42px;font-size:15px;}
+  .chat-messages{height:180px;}
+  .chat-text{font-size:13px;}
+  .wallet-balance-big{font-size:30px;}
+  .mstat-val{font-size:18px;}
+  .mstat{min-width:80px;padding:10px 6px;}
+  .mining-stats{justify-content:center;}
+  .trades-list{height:280px;}
+  .list-scroll{height:160px;}
+  #canvas-chart{height:140px;}
+  .toplist-table th,.toplist-table td{padding:8px 8px;}
+  .admin-wallet-table th,.admin-wallet-table td{padding:6px 8px;font-size:10px;}
+  .page-header h2{font-size:14px;}
+  .wallet-address{font-size:9px;}
+  .block-num{font-size:11px;}
+  .block-hash{font-size:9px;}
+}
+
+@media(max-width:420px){
+  .logo-accent{display:none;}
+  .logo{font-size:13px;}
+  .badge{display:none;}
+  .nav-btn span{display:none;}
+  .nav-btn i{font-size:20px;}
+  .nav-btn{height:52px;}
+  .sidebar{height:52px;}
+  .page-wrap{bottom:52px;}
+  .price-big{font-size:16px;}
+  .mstat-val{font-size:16px;}
+  .mining-stats{flex-wrap:wrap;}
+  .mstat{min-width:50%;}
+}
