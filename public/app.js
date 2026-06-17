@@ -28,6 +28,14 @@ function openWalletModal(){
   const addrEl=document.getElementById('modal-current-addr');
   if(STATE.wallet){info.style.display='block';addrEl.textContent=STATE.wallet.address;}
   else info.style.display='none';
+  const area=document.getElementById('wallet-new-result-area');
+  if(area){area.style.display='none';area.innerHTML='';}
+  const btnNew=document.getElementById('btn-new-wallet');
+  if(btnNew)btnNew.style.display='flex';
+  const pk=document.getElementById('import-privkey');
+  if(pk)pk.value='';
+  const err=document.getElementById('wallet-import-error');
+  if(err)err.textContent='';
   document.getElementById('wallet-modal').style.display='flex';
 }
 function closeWalletModal(){document.getElementById('wallet-modal').style.display='none';}
@@ -49,22 +57,29 @@ function logoutWallet(){
 
 async function generateWallet(){
   const data=await api('/api/wallet/new');
-  document.getElementById('wallet-modal-content').innerHTML=`
-    <div class="wallet-new-result">
-      <div><div class="key-label">ADRES</div><div class="key-value">${data.address}</div></div>
-      <div><div class="key-label">PRIVATE KEY <span class="key-warn">(gizli tut!)</span></div><div class="key-value">${data.priv_key}</div></div>
-    </div>
-    <p style="font-size:10px;color:var(--red);text-align:center;">Bu bilgileri kaybet = cüzdanı kaybet.</p>
-    <button class="btn-primary" onclick="loginWith('${data.priv_key}','${data.address}','${data.pub_key}')">
-      <i class="fa-solid fa-right-to-bracket"></i> Bu Cüzdanla Giriş Yap
-    </button>`;
+  const area=document.getElementById('wallet-new-result-area');
+  area.style.display='block';
+  area.innerHTML=`
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px;margin-bottom:10px;">
+      <div style="font-size:9px;color:var(--text-muted);margin-bottom:3px;">ADRES</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--green);word-break:break-all;margin-bottom:8px;">${data.address}</div>
+      <div style="font-size:9px;color:var(--red);margin-bottom:3px;">PRIVATE KEY — KIMSEYLE PAYLASMA</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);word-break:break-all;margin-bottom:10px;">${data.priv_key}</div>
+      <button onclick="loginWith('${data.priv_key}','${data.address}','${data.pub_key}')" style="width:100%;background:var(--green);border:none;border-radius:var(--radius-sm);color:#000;padding:10px;font-size:12px;font-weight:700;cursor:pointer;">
+        Bu Cuzdan ile Giris Yap
+      </button>
+    </div>`;
+  document.getElementById('btn-new-wallet').style.display='none';
 }
 
 async function importWallet(){
   const pk=document.getElementById('import-privkey').value.trim();
-  if(!pk){showFloat('Private key boş','err');return;}
+  const errEl=document.getElementById('wallet-import-error');
+  if(!pk){errEl.textContent='Private key bos olamaz';return;}
+  errEl.textContent='Yukleniyor...';
   const r=await api('/api/wallet/import',{method:'POST',body:JSON.stringify({priv_key:pk})});
-  if(r.hata){showFloat('Geçersiz key: '+r.hata,'err');return;}
+  if(r.hata){errEl.textContent='Gecersiz key: '+r.hata;return;}
+  errEl.textContent='';
   loginWith(pk,r.address,r.pub_key);
 }
 
