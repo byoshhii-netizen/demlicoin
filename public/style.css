@@ -212,3 +212,27 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
   .dash-chart-card,.dash-chat-card,.dash-trades-card,.dash-blocks-card{grid-column:1;grid-row:auto;}
   .admin-page-grid{grid-template-columns:1fr;}
 }
+
+.mining-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+.mining-status-card{grid-column:1/-1;}
+.mining-stats{display:flex;gap:0;flex-wrap:wrap;}
+.mstat{flex:1;min-width:120px;padding:14px;border-right:1px solid var(--border);text-align:center;}
+.mstat:last-child{border-right:none;}
+.mstat-val{font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--text);}
+.mstat-val.gold{color:var(--gold);}
+.mstat-val.green{color:var(--green);}
+.mstat-label{font-size:10px;color:var(--text-muted);margin-top:2px;}
+.stake-info-box{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;display:flex;flex-direction:column;gap:6px;}
+.sib-row{display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);}
+.sib-val{font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--text);}
+.sib-val.green{color:var(--green);}
+.sib-val.gold{color:var(--gold);}
+.stake-empty{text-align:center;padding:20px;display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--text-muted);font-size:12px;}
+.pos-explainer{display:grid;grid-template-columns:1fr 1fr;gap:0;}
+.pos-step{display:flex;gap:12px;padding:14px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);}
+.pos-step:nth-child(2n){border-right:none;}
+.pos-step:nth-child(n+3){border-bottom:none;}
+.pos-num{width:28px;height:28px;border-radius:50%;background:var(--gold-dim);color:var(--gold);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;}
+.pos-step p{font-size:11px;color:var(--text-muted);margin-top:3px;}
+.pos-step strong{font-size:12px;color:var(--text);}
+@media(max-width:700px){.mining-grid{grid-template-columns:1fr;}.mining-status-card{grid-column:1;}.pos-explainer{grid-template-columns:1fr;}.pos-step{border-right:none;}}

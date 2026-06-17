@@ -34,6 +34,8 @@
 <nav class="sidebar">
   <button class="nav-btn active" onclick="switchPage('dashboard',this)"><i class="fa-solid fa-chart-line"></i><span>Dashboard</span></button>
   <button class="nav-btn" onclick="switchPage('toplist',this)"><i class="fa-solid fa-trophy"></i><span>Toplist</span></button>
+  <button class="nav-btn" onclick="switchPage('mining',this)"><i class="fa-solid fa-pickaxe"></i><span>Mining</span></button>
+  <button class="nav-btn" onclick="switchPage('explorer',this)"><i class="fa-solid fa-magnifying-glass"></i><span>Explorer</span></button>
   <button class="nav-btn" onclick="switchPage('wallet',this)"><i class="fa-solid fa-wallet"></i><span>Cüzdanim</span></button>
   <button class="nav-btn admin-only" id="nav-admin" onclick="switchPage('admin',this)" style="display:none;"><i class="fa-solid fa-shield-halved"></i><span>Admin</span></button>
 </nav>
@@ -115,6 +117,97 @@
           <thead><tr><th>SIRA</th><th>KULLANICI</th><th>ADRES</th><th>BAKİYE</th></tr></thead>
           <tbody id="toplist-body"></tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="page" id="page-mining">
+    <div class="page-header">
+      <h2><i class="fa-solid fa-pickaxe"></i> Stake Mining</h2>
+      <p style="font-size:12px;color:var(--text-muted);margin-top:4px;">DEM stake ederek blok üret, ödül kazan. PC'ni yormaz.</p>
+    </div>
+    <div class="mining-grid">
+      <div class="card mining-status-card">
+        <div class="card-header"><span><i class="fa-solid fa-circle-nodes"></i> Ağ Durumu</span></div>
+        <div class="mining-stats">
+          <div class="mstat"><div class="mstat-val" id="m-block">0</div><div class="mstat-label">Toplam Blok</div></div>
+          <div class="mstat"><div class="mstat-val gold" id="m-reward">50</div><div class="mstat-label">Blok Ödülü (DEM)</div></div>
+          <div class="mstat"><div class="mstat-val" id="m-halving">210000</div><div class="mstat-label">Sonraki Halving</div></div>
+          <div class="mstat"><div class="mstat-val green" id="m-stakers">0</div><div class="mstat-label">Aktif Miner</div></div>
+          <div class="mstat"><div class="mstat-val" id="m-mempool">0</div><div class="mstat-label">Mempool</div></div>
+          <div class="mstat"><div class="mstat-val" id="m-blocktime">15s</div><div class="mstat-label">Blok Süresi</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span><i class="fa-solid fa-layer-group"></i> Stake Et — Blok Üret</span></div>
+        <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
+          <div class="stake-info-box" id="stake-info-box" style="display:none;">
+            <div class="sib-row"><span>Stake Miktarı</span><span class="sib-val green" id="sib-amount">0 DEM</span></div>
+            <div class="sib-row"><span>Kazanılan Ödül</span><span class="sib-val gold" id="sib-rewards">0 DEM</span></div>
+            <div class="sib-row"><span>Üretilen Blok</span><span class="sib-val" id="sib-blocks">0</span></div>
+          </div>
+          <div class="stake-empty" id="stake-empty">
+            <i class="fa-solid fa-pickaxe" style="font-size:28px;color:var(--text-muted);"></i>
+            <p>Henüz stake yok. Minimum <strong style="color:var(--gold);">100 DEM</strong> stake ederek mining başlat.</p>
+          </div>
+          <div class="form-group">
+            <label>Stake Miktarı (min. 100 DEM)</label>
+            <input class="input-field" id="stake-amount" type="number" placeholder="100" min="100">
+          </div>
+          <button class="btn-gold" onclick="doStake()"><i class="fa-solid fa-coins"></i> Stake Et ve Mine Başlat</button>
+          <div style="border-top:1px solid var(--border);padding-top:10px;">
+            <div class="form-group">
+              <label>Unstake Miktarı</label>
+              <input class="input-field" id="unstake-amount" type="number" placeholder="100">
+            </div>
+            <button class="btn-outline" onclick="doUnstake()" style="margin-top:6px;"><i class="fa-solid fa-arrow-down-from-line"></i> Unstake Et</button>
+          </div>
+          <div id="stake-result" class="result-msg"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span><i class="fa-solid fa-ranking-star"></i> Aktif Minerlar</span></div>
+        <div style="overflow-x:auto;max-height:300px;overflow-y:auto;">
+          <table class="toplist-table">
+            <thead><tr><th>KULLANICI</th><th>STAKE</th><th>ÖDÜL</th><th>BLOK</th></tr></thead>
+            <tbody id="stakes-body"></tbody>
+          </table>
+        </div>
+        <div style="padding:8px 14px;border-top:1px solid var(--border);">
+          <button class="btn-icon" onclick="loadMiningData()" style="width:100%;font-size:11px;"><i class="fa-solid fa-rotate"></i> Yenile</button>
+        </div>
+      </div>
+
+      <div class="card" style="grid-column:1/-1;">
+        <div class="card-header"><span><i class="fa-solid fa-info-circle"></i> Proof of Stake — Nasıl Çalışır?</span></div>
+        <div class="pos-explainer">
+          <div class="pos-step"><div class="pos-num">1</div><div><strong>DEM Stake Et</strong><p>En az 100 DEM stake ederek mining havuzuna gir. PC'ni yakmaz, elektrik harcamaz.</p></div></div>
+          <div class="pos-step"><div class="pos-num">2</div><div><strong>Blok Seçimi</strong><p>Her 15 saniyede bir ağ, stake miktarına oranla rastgele bir validator seçer. Fazla stake = yüksek seçilme şansı.</p></div></div>
+          <div class="pos-step"><div class="pos-num">3</div><div><strong>Ödül Kazan</strong><p>Seçildiğinde blok üretirsin ve şu anki blok ödülü (başlangıç: 50 DEM) cüzdanına yüklenir.</p></div></div>
+          <div class="pos-step"><div class="pos-num">4</div><div><strong>Halving</strong><p>Her 210.000 blokta ödül yarıya düşer. Bitcoin gibi. Erken giren daha çok kazanır.</p></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="page" id="page-explorer">
+    <div class="page-header"><h2><i class="fa-solid fa-magnifying-glass"></i> Block Explorer</h2></div>
+    <div style="max-width:900px;">
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <input class="input-field" id="explorer-search" placeholder="Blok numarası, TX hash veya cüzdan adresi..." style="flex:1;">
+        <button class="btn-primary" onclick="explorerSearch()" style="width:auto;white-space:nowrap;"><i class="fa-solid fa-magnifying-glass"></i> Ara</button>
+      </div>
+      <div id="explorer-result" style="margin-bottom:14px;"></div>
+      <div class="card">
+        <div class="card-header"><span><i class="fa-solid fa-layer-group"></i> Son Bloklar</span></div>
+        <div style="overflow-x:auto;">
+          <table class="toplist-table" id="explorer-blocks-table">
+            <thead><tr><th>BLOK</th><th>ZAMAN</th><th>VALIDATOR</th><th>İŞLEM</th><th>MERKLE ROOT</th></tr></thead>
+            <tbody id="explorer-blocks-body"></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>

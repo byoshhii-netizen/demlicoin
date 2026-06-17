@@ -60,6 +60,18 @@ func main() {
 	})
 	priceEngine.Start()
 
+	miningEngine := blockchain.NewMiningEngine(chain, func(b *blockchain.Block, validator string) {
+		hub.BroadcastBlock(b)
+		hub.BroadcastNetworkAlert("NEW_BLOCK:" + validator[:min(8, len(validator))])
+		if b.Transactions != nil {
+			for _, tx := range b.Transactions {
+				impact := tx.Amount * 0.00003
+				priceEngine.ApplyImpact(impact)
+			}
+		}
+	})
+	miningEngine.Start()
+
 	botEngine := blockchain.NewBotEngine(chain, hub, priceEngine)
 	botEngine.Start()
 
@@ -68,7 +80,7 @@ func main() {
 	fmt.Printf("Max Arz       : %.0f DEM\n", blockchain.MaxSupply)
 	fmt.Printf("Veritabani    : PostgreSQL\n")
 
-	srv := api.NewServerWithPrice(chain, hub, con, store, priceEngine)
+	srv := api.NewServerFull(chain, hub, con, store, priceEngine, miningEngine)
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
@@ -78,8 +90,14 @@ func main() {
 	log.Fatal(http.ListenAndServe(":"+port, srv.Handler()))
 }
 
-func loadOrCreateFounder() string {
-	keyFile := "founder_wallet.json"
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func loadOrCreateFounder() string {	keyFile := "founder_wallet.json"
 
 	if data, err := os.ReadFile(keyFile); err == nil {
 		var saved struct {

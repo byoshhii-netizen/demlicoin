@@ -286,6 +286,7 @@ func (c *Chain) AddBlock(validator string, txs []Transaction) *Block {
 		Transactions: txs,
 		PrevHash:     prev.Hash,
 		Validator:    validator,
+		MerkleRoot:   CalcMerkleRoot(txs),
 		Nonce:        uint64(time.Now().UnixNano()),
 	}
 	b.Hash = c.calcBlockHash(b)

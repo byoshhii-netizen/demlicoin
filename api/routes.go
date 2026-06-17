@@ -23,12 +23,19 @@ var upgrader = websocket.Upgrader{
 }
 
 type Server struct {
-	chain       *blockchain.Chain
-	hub         *p2p.Hub
-	console     *console.Console
-	router      *mux.Router
-	store       storeIface
-	priceEngine *blockchain.PriceEngine
+	chain        *blockchain.Chain
+	hub          *p2p.Hub
+	console      *console.Console
+	router       *mux.Router
+	store        storeIface
+	priceEngine  *blockchain.PriceEngine
+	miningEngine *blockchain.MiningEngine
+}
+
+func NewServerFull(chain *blockchain.Chain, hub *p2p.Hub, con *console.Console, store storeIface, pe *blockchain.PriceEngine, me *blockchain.MiningEngine) *Server {
+	s := &Server{chain: chain, hub: hub, console: con, router: mux.NewRouter(), store: store, priceEngine: pe, miningEngine: me}
+	s.setupRoutes()
+	return s
 }
 
 type storeIface interface {
@@ -80,6 +87,11 @@ func (s *Server) setupRoutes() {
 	s.router.HandleFunc("/api/toplist", s.handleTopList).Methods("GET")
 	s.router.HandleFunc("/api/admin/wallets", s.handleAdminWallets).Methods("GET")
 	s.router.HandleFunc("/api/trades/recent", s.handleRecentTrades).Methods("GET")
+	s.router.HandleFunc("/api/mining/stake", s.handleStake).Methods("POST")
+	s.router.HandleFunc("/api/mining/unstake", s.handleUnstake).Methods("POST")
+	s.router.HandleFunc("/api/mining/status", s.handleMiningStatus).Methods("GET")
+	s.router.HandleFunc("/api/mining/mempool", s.handleMempool).Methods("GET")
+	s.router.HandleFunc("/api/mining/stakes", s.handleAllStakes).Methods("GET")
 	s.router.PathPrefix("/").Handler(http.FileServer(http.Dir("./public")))
 }
 
@@ -476,6 +488,140 @@ func (s *Server) handleRecentTrades(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonOK(w, list)
+}
+
+func (s *Server) handleStake(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		From      string  `json:"from"`
+		Amount    float64 `json:"amount"`
+		Signature string  `json:"signature"`
+		PubKey    string  `json:"pub_key"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	pub, err := wallet.HexToPubKey(req.PubKey)
+	if err != nil {
+		jsonErr(w, "Geçersiz public key", 400)
+		return
+	}
+	sigData := req.From + "STAKE" + strconv.FormatFloat(req.Amount, 'f', 8, 64)
+	if !wallet.Verify(pub, sigData, req.Signature) {
+		jsonErr(w, "GEÇERSİZ_İMZA", 401)
+		return
+	}
+	if s.miningEngine == nil {
+		jsonErr(w, "Mining engine yok", 500)
+		return
+	}
+	if err := s.miningEngine.Stake(req.From, req.Amount); err != nil {
+		jsonErr(w, err.Error(), 400)
+		return
+	}
+	jsonOK(w, map[string]interface{}{
+		"ok":     true,
+		"mesaj":  fmt.Sprintf("%.2f DEM stake edildi. Blok üretimine katılıyorsunuz.", req.Amount),
+		"stake":  s.miningEngine.GetStake(req.From),
+	})
+}
+
+func (s *Server) handleUnstake(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		From      string  `json:"from"`
+		Amount    float64 `json:"amount"`
+		Signature string  `json:"signature"`
+		PubKey    string  `json:"pub_key"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	pub, err := wallet.HexToPubKey(req.PubKey)
+	if err != nil {
+		jsonErr(w, "Geçersiz public key", 400)
+		return
+	}
+	sigData := req.From + "UNSTAKE" + strconv.FormatFloat(req.Amount, 'f', 8, 64)
+	if !wallet.Verify(pub, sigData, req.Signature) {
+		jsonErr(w, "GEÇERSİZ_İMZA", 401)
+		return
+	}
+	if s.miningEngine == nil {
+		jsonErr(w, "Mining engine yok", 500)
+		return
+	}
+	if err := s.miningEngine.Unstake(req.From, req.Amount); err != nil {
+		jsonErr(w, err.Error(), 400)
+		return
+	}
+	jsonOK(w, map[string]interface{}{
+		"ok":    true,
+		"mesaj": fmt.Sprintf("%.2f DEM unstake edildi, cüzdanına geri yüklendi.", req.Amount),
+	})
+}
+
+func (s *Server) handleMiningStatus(w http.ResponseWriter, r *http.Request) {
+	address := r.URL.Query().Get("address")
+	if s.miningEngine == nil {
+		jsonErr(w, "Mining engine yok", 500)
+		return
+	}
+	height := s.chain.State.BlockHeight
+	halvings := height / blockchain.HalvingInterval
+	reward := blockchain.BlockRewardBase
+	for i := uint64(0); i < halvings; i++ {
+		reward /= 2
+	}
+	resp := map[string]interface{}{
+		"block_height":    height,
+		"current_reward":  reward,
+		"next_halving":    blockchain.HalvingInterval - (height % blockchain.HalvingInterval),
+		"total_stakers":   len(s.miningEngine.GetAllStakes()),
+		"mempool_size":    s.miningEngine.GetMempoolSize(),
+		"min_stake":       blockchain.MinStakeAmount,
+		"block_time_secs": 15,
+	}
+	if address != "" {
+		resp["my_stake"] = s.miningEngine.GetStake(address)
+	}
+	jsonOK(w, resp)
+}
+
+func (s *Server) handleMempool(w http.ResponseWriter, r *http.Request) {
+	if s.miningEngine == nil {
+		jsonOK(w, []interface{}{})
+		return
+	}
+	txs := s.miningEngine.GetMempoolTxs(20)
+	jsonOK(w, txs)
+}
+
+func (s *Server) handleAllStakes(w http.ResponseWriter, r *http.Request) {
+	if s.miningEngine == nil {
+		jsonOK(w, []interface{}{})
+		return
+	}
+	stakes := s.miningEngine.GetAllStakes()
+	type stakeOut struct {
+		Address     string    `json:"address"`
+		Username    string    `json:"username"`
+		Amount      float64   `json:"amount"`
+		Rewards     float64   `json:"rewards"`
+		BlocksMined uint64    `json:"blocks_mined"`
+		Since       time.Time `json:"since"`
+	}
+	result := make([]stakeOut, len(stakes))
+	for i, s2 := range stakes {
+		addr := s2.Address
+		un := "@Dem_"
+		if len(addr) >= 9 {
+			un += addr[3:9]
+		}
+		result[i] = stakeOut{
+			Address:     addr,
+			Username:    un,
+			Amount:      s2.Amount,
+			Rewards:     s2.Rewards,
+			BlocksMined: s2.BlocksMined,
+			Since:       s2.Since,
+		}
+	}
+	jsonOK(w, result)
 }
 
 func jsonOK(w http.ResponseWriter, data interface{}) {

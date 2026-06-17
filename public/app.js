@@ -17,6 +17,8 @@ function switchPage(name,btn){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
   if(name==='toplist')loadToplist();
+  if(name==='mining')loadMiningData();
+  if(name==='explorer')loadExplorer();
   if(name==='admin')loadAdminWallets();
 }
 
@@ -112,7 +114,10 @@ function connectWS(){
 
 function handleMsg(msg){
   switch(msg.type){
-    case 'NEW_BLOCK': addBlock(msg.payload);refreshBalance();break;
+    case 'NEW_BLOCK': addBlock(msg.payload);refreshBalance();
+      if(document.getElementById('page-mining').classList.contains('active'))loadMiningData();
+      if(document.getElementById('page-explorer').classList.contains('active'))loadExplorer();
+      break;
     case 'CHAT': appendChat(msg.payload);break;
     case 'PRICE': onPriceUpdate(msg.payload.price,msg.payload.history);break;
     case 'DELETE_MSG': deleteChatMsg(msg.payload);break;
@@ -464,3 +469,123 @@ setInterval(async()=>{
 setInterval(refreshBalance,20000);
 
 init();
+
+async function loadMiningData(){
+  const status=await api('/api/mining/status'+(STATE.wallet?'?address='+encodeURIComponent(STATE.wallet.address):''));
+  if(status.hata)return;
+  document.getElementById('m-block').textContent=status.block_height||0;
+  document.getElementById('m-reward').textContent=(status.current_reward||50).toFixed(2);
+  document.getElementById('m-halving').textContent=(status.next_halving||210000).toLocaleString('tr-TR');
+  document.getElementById('m-stakers').textContent=status.total_stakers||0;
+  document.getElementById('m-mempool').textContent=status.mempool_size||0;
+  document.getElementById('m-blocktime').textContent=(status.block_time_secs||15)+'s';
+  if(status.my_stake&&status.my_stake.amount>0){
+    document.getElementById('stake-empty').style.display='none';
+    document.getElementById('stake-info-box').style.display='flex';
+    document.getElementById('sib-amount').textContent=status.my_stake.amount.toLocaleString('tr-TR',{maximumFractionDigits:2})+' DEM';
+    document.getElementById('sib-rewards').textContent=(status.my_stake.rewards||0).toLocaleString('tr-TR',{maximumFractionDigits:4})+' DEM';
+    document.getElementById('sib-blocks').textContent=status.my_stake.blocks_mined||0;
+  } else {
+    document.getElementById('stake-empty').style.display='flex';
+    document.getElementById('stake-info-box').style.display='none';
+  }
+  const stakes=await api('/api/mining/stakes');
+  const tbody=document.getElementById('stakes-body');
+  if(Array.isArray(stakes)&&stakes.length>0){
+    tbody.innerHTML=stakes.sort((a,b)=>b.amount-a.amount).map((s,i)=>`
+      <tr>
+        <td style="color:var(--gold);font-weight:600;">${s.username}</td>
+        <td style="font-family:'JetBrains Mono',monospace;color:var(--green);">${s.amount.toLocaleString('tr-TR',{maximumFractionDigits:2})} DEM</td>
+        <td style="font-family:'JetBrains Mono',monospace;color:var(--gold);">${(s.rewards||0).toFixed(4)} DEM</td>
+        <td>${s.blocks_mined||0}</td>
+      </tr>`).join('');
+  } else {
+    tbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:16px;">Henüz aktif miner yok</td></tr>';
+  }
+}
+
+async function doStake(){
+  if(!STATE.wallet){openWalletModal();return;}
+  const amount=parseFloat(document.getElementById('stake-amount').value);
+  if(isNaN(amount)||amount<100){setResult('stake-result','Minimum 100 DEM stake edilebilir','err');return;}
+  const sigData=STATE.wallet.address+'STAKE'+amount.toFixed(8);
+  const ir=await api('/api/admin/imza-olustur',{method:'POST',body:JSON.stringify({priv_key:STATE.wallet.privKey,veri:sigData})});
+  if(ir.hata){setResult('stake-result','İmza hatası','err');return;}
+  const r=await api('/api/mining/stake',{method:'POST',body:JSON.stringify({from:STATE.wallet.address,amount,signature:ir.imza,pub_key:STATE.wallet.pubKey})});
+  if(r.hata){setResult('stake-result',r.hata,'err');}
+  else{
+    setResult('stake-result',r.mesaj,'ok');
+    showTxNotify('Stake Başarılı',amount+' DEM mining havuzuna eklendi');
+    document.getElementById('stake-amount').value='';
+    refreshBalance();loadMiningData();
+  }
+}
+
+async function doUnstake(){
+  if(!STATE.wallet){openWalletModal();return;}
+  const amount=parseFloat(document.getElementById('unstake-amount').value);
+  if(isNaN(amount)||amount<=0){setResult('stake-result','Geçersiz miktar','err');return;}
+  const sigData=STATE.wallet.address+'UNSTAKE'+amount.toFixed(8);
+  const ir=await api('/api/admin/imza-olustur',{method:'POST',body:JSON.stringify({priv_key:STATE.wallet.privKey,veri:sigData})});
+  if(ir.hata){setResult('stake-result','İmza hatası','err');return;}
+  const r=await api('/api/mining/unstake',{method:'POST',body:JSON.stringify({from:STATE.wallet.address,amount,signature:ir.imza,pub_key:STATE.wallet.pubKey})});
+  if(r.hata){setResult('stake-result',r.hata,'err');}
+  else{setResult('stake-result',r.mesaj,'ok');refreshBalance();loadMiningData();}
+}
+
+async function loadExplorer(){
+  const blocks=await api('/api/blocks?limit=20');
+  const tbody=document.getElementById('explorer-blocks-body');
+  if(!Array.isArray(blocks)||blocks.length===0){
+    tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px;">Blok yok</td></tr>';
+    return;
+  }
+  tbody.innerHTML=blocks.map(b=>`
+    <tr>
+      <td style="font-weight:700;color:var(--gold);">#${b.index}</td>
+      <td style="font-size:10px;color:var(--text-muted);">${new Date(b.timestamp).toLocaleString('tr-TR')}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);">${(b.validator||'').slice(0,12)}...</td>
+      <td style="text-align:center;">${b.transactions?b.transactions.length:0}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--border);">${(b.merkle_root||'—').slice(0,16)}...</td>
+    </tr>`).join('');
+}
+
+async function explorerSearch(){
+  const q=document.getElementById('explorer-search').value.trim();
+  if(!q)return;
+  const result=document.getElementById('explorer-result');
+  result.innerHTML='<div style="color:var(--text-muted);font-size:12px;">Aranıyor...</div>';
+  if(q.startsWith('DEM')){
+    const d=await api('/api/wallet/'+q+'/balance');
+    if(d.hata){result.innerHTML='<div style="color:var(--red);font-size:12px;">Cüzdan bulunamadı</div>';return;}
+    result.innerHTML=`
+      <div class="card" style="padding:14px;margin-bottom:8px;">
+        <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">CÜZDAN</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--green);word-break:break-all;">${q}</div>
+        <div style="margin-top:8px;font-size:18px;font-weight:700;color:var(--green);">${parseFloat(d.balance||0).toLocaleString('tr-TR',{maximumFractionDigits:4})} <span style="font-size:12px;color:var(--text-muted);">DEM</span></div>
+        <div style="font-size:11px;color:${d.blacklisted?'var(--red)':'var(--text-muted)'};margin-top:4px;">${d.blacklisted?'YASAKLI':'Aktif'}</div>
+      </div>`;
+  } else if(!isNaN(parseInt(q))){
+    const blocks=await api('/api/blocks?limit=100');
+    if(Array.isArray(blocks)){
+      const b=blocks.find(x=>x.index===parseInt(q));
+      if(b){
+        result.innerHTML=`
+          <div class="card" style="padding:14px;margin-bottom:8px;">
+            <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">BLOK #${b.index}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;">
+              <div><span style="color:var(--text-muted);">Hash:</span> <span style="font-family:'JetBrains Mono',monospace;font-size:10px;">${(b.hash||'').slice(0,24)}...</span></div>
+              <div><span style="color:var(--text-muted);">Merkle:</span> <span style="font-family:'JetBrains Mono',monospace;font-size:10px;">${(b.merkle_root||'—').slice(0,20)}...</span></div>
+              <div><span style="color:var(--text-muted);">Validator:</span> <span style="color:var(--gold);">${(b.validator||'').slice(0,12)}...</span></div>
+              <div><span style="color:var(--text-muted);">İşlem:</span> <span style="color:var(--green);">${b.transactions?b.transactions.length:0}</span></div>
+              <div><span style="color:var(--text-muted);">Zaman:</span> ${new Date(b.timestamp).toLocaleString('tr-TR')}</div>
+            </div>
+          </div>`;
+      } else {
+        result.innerHTML='<div style="color:var(--red);font-size:12px;">Blok bulunamadı</div>';
+      }
+    }
+  } else {
+    result.innerHTML='<div style="color:var(--text-muted);font-size:12px;">DEM adresi veya blok numarası girin</div>';
+  }
+}

@@ -33,6 +33,7 @@ type Block struct {
 	Transactions []Transaction `json:"transactions"`
 	PrevHash     string        `json:"prev_hash"`
 	Hash         string        `json:"hash"`
+	MerkleRoot   string        `json:"merkle_root"`
 	Validator    string        `json:"validator"`
 	Signature    string        `json:"signature"`
 	Nonce        uint64        `json:"nonce"`
