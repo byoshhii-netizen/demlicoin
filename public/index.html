@@ -37,9 +37,11 @@
 <nav class="sidebar">
   <button class="nav-btn active" onclick="switchPage('dashboard',this)"><i class="fa-solid fa-chart-line"></i><span>Dashboard</span></button>
   <button class="nav-btn" onclick="switchPage('toplist',this)"><i class="fa-solid fa-trophy"></i><span>Toplist</span></button>
+  <button class="nav-btn" onclick="switchPage('learn',this)"><i class="fa-solid fa-graduation-cap"></i><span>Egitim</span></button>
   <button class="nav-btn" onclick="switchPage('mining',this)"><i class="fa-solid fa-pickaxe"></i><span>Mining</span></button>
   <button class="nav-btn" onclick="switchPage('explorer',this)"><i class="fa-solid fa-magnifying-glass"></i><span>Explorer</span></button>
   <button class="nav-btn" onclick="switchPage('wallet',this)"><i class="fa-solid fa-wallet"></i><span>Cüzdanim</span></button>
+  <button class="nav-btn admin-only" id="nav-admin" onclick="switchPage('admin',this)" style="display:none;"><i class="fa-solid fa-shield-halved"></i><span>Admin</span></button>
   <button class="nav-btn admin-only" id="nav-admin" onclick="switchPage('admin',this)" style="display:none;"><i class="fa-solid fa-shield-halved"></i><span>Admin</span></button>
 </nav>
 
@@ -195,7 +197,202 @@
     </div>
   </div>
 
-  <div class="page" id="page-explorer">
+  <div class="page" id="page-learn">
+    <div class="page-header"><h2><i class="fa-solid fa-graduation-cap"></i> DemCoin Egitim Merkezi</h2></div>
+    <div class="learn-wrap">
+
+      <div class="learn-tabs">
+        <button class="ltab active" onclick="ltab('baslangic',this)">Baslangic</button>
+        <button class="ltab" onclick="ltab('mining',this)">Mining</button>
+        <button class="ltab" onclick="ltab('trading',this)">Alim Satim</button>
+        <button class="ltab" onclick="ltab('sozluk',this)">Sozluk</button>
+        <button class="ltab" onclick="ltab('guvenlik',this)">Guvenlik</button>
+      </div>
+
+      <div class="ltab-content active" id="lt-baslangic">
+        <div class="learn-hero">
+          <div class="lh-icon"><i class="fa-solid fa-rocket"></i></div>
+          <h3>DemCoin Nedir?</h3>
+          <p>DemCoin, Go programlama diliyle sifirdan yazilmis, kendi blockchain agina sahip bir dijital para birimidir. Bitcoin gibi merkezi bir otorite yoktur — islemler ECDSA sifreleme ile guvenli hale getirilir ve blok zincirine kalici olarak kaydedilir.</p>
+        </div>
+        <div class="learn-cards">
+          <div class="lcard">
+            <div class="lcard-icon green"><i class="fa-solid fa-wallet"></i></div>
+            <h4>1. Cuzdan Olustur</h4>
+            <p>Sag ustteki cuzdan ikonuna tikla. "Yeni Cuzdan Olustur" butonuna bas. Sana ozel bir adres ve private key olusturulur. <strong>Private key'ini kaybet = parayi kaybet.</strong> Mutlaka guvenli bir yere yaz.</p>
+          </div>
+          <div class="lcard">
+            <div class="lcard-icon gold"><i class="fa-solid fa-coins"></i></div>
+            <h4>2. DEM Edin</h4>
+            <p>Mining yaparak (stake et, blok odulu kazan) veya baska birinden transfer alarak DEM edinebilirsin. Ilk DEM'ini edinmek icin bir miner'dan veya kurucu cuzdan sahibinden isteyebilirsin.</p>
+          </div>
+          <div class="lcard">
+            <div class="lcard-icon blue"><i class="fa-solid fa-paper-plane"></i></div>
+            <h4>3. Transfer Gonder</h4>
+            <p>Cuzdan sekmesinden hedef adres ve miktar girerek transfer yaparsın. Her transferde 5 DEM gas ucreti kesilir. Gas, agin calismasi icin odenen kucuk bir ucrettir.</p>
+          </div>
+          <div class="lcard">
+            <div class="lcard-icon" style="background:var(--red-dim);color:var(--red);"><i class="fa-solid fa-chart-line"></i></div>
+            <h4>4. Fiyati Takip Et</h4>
+            <p>Dashboard'daki canli grafik, DEM'in USD karsiligi fiyatini gosterir. Islem hacmi arttikca fiyat yukselir. Toplist'te en fazla DEM'e sahip kullanicilari gorebilirsin.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="ltab-content" id="lt-mining">
+        <div class="learn-hero">
+          <div class="lh-icon gold"><i class="fa-solid fa-pickaxe"></i></div>
+          <h3>Mining (Madencilik) Nasil Yapilir?</h3>
+          <p>DemCoin, <strong>Proof of Stake (PoS)</strong> sistemini kullanir. Bitcoin gibi elektrik yakan guclu bilgisayarlara gerek yoktur. Sadece DEM stake ederek blok uretebilir ve odul kazanabilirsin.</p>
+        </div>
+        <div class="learn-steps">
+          <div class="lstep">
+            <div class="lstep-num">01</div>
+            <div class="lstep-body">
+              <h4>DEM Edin</h4>
+              <p>Mining baslatmak icin en az <strong style="color:var(--gold);">100 DEM</strong> gerekir. Bunu bir transferle veya baska bir miner'dan alabilirsin.</p>
+            </div>
+          </div>
+          <div class="lstep">
+            <div class="lstep-num">02</div>
+            <div class="lstep-body">
+              <h4>Stake Et</h4>
+              <p>Mining sekmesine git, stake miktarini gir ve "Stake Et" butonuna bas. DEM'in mining havuzuna girer. PC'nin acik olmasi gerekmez — sunucu senin adina mine eder.</p>
+            </div>
+          </div>
+          <div class="lstep">
+            <div class="lstep-num">03</div>
+            <div class="lstep-body">
+              <h4>Blok Uretimi</h4>
+              <p>Her 15 saniyede bir ag, stake miktarına oranlı rastgele bir validator secer. <strong>1000 DEM stake etmissin = 100 DEM stake edenden 10x daha fazla secilme sansi.</strong></p>
+            </div>
+          </div>
+          <div class="lstep">
+            <div class="lstep-num">04</div>
+            <div class="lstep-body">
+              <h4>Odul Al</h4>
+              <p>Secildiginde blok uretirsin ve su anki blok odulu (baslangic: <strong style="color:var(--gold);">50 DEM</strong>) aninda cüzdanına yuklenür. Halving'e kadar devam eder.</p>
+            </div>
+          </div>
+          <div class="lstep">
+            <div class="lstep-num">05</div>
+            <div class="lstep-body">
+              <h4>Halving Nedir?</h4>
+              <p>Her <strong>210.000 blokta</strong> bir blok odulu yariya duser: 50 → 25 → 12.5 → 6.25 DEM... Bitcoin ile ayni sistem. Erken mine eden daha cok kazanir.</p>
+            </div>
+          </div>
+          <div class="lstep">
+            <div class="lstep-num">06</div>
+            <div class="lstep-body">
+              <h4>Unstake</h4>
+              <p>Istedigin zaman stake'ini geri alabilirsin. "Unstake Et" butonuna bas, DEM'in cüzdanina geri yuklenür. Bekleyen bir sure yoktur.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ltab-content" id="lt-trading">
+        <div class="learn-hero">
+          <div class="lh-icon" style="background:var(--green-dim);color:var(--green);"><i class="fa-solid fa-arrows-rotate"></i></div>
+          <h3>Alim Satim Nasil Yapilir?</h3>
+          <p>DemCoin'de alim satim dogrudan kullanici-kullanici arasinda gerceklesir. Fiyat, agin islem hacmine gore otomatik degisir.</p>
+        </div>
+        <div class="learn-cards">
+          <div class="lcard">
+            <div class="lcard-icon green"><i class="fa-solid fa-arrow-down"></i></div>
+            <h4>DEM Almak</h4>
+            <p>Bir satici ile anlasip DEM adresini al. Karsiliginda IBAN, Papara veya diger yontemlerle odeme yap. Satici sana transfer atar. Islem blockchain'e kalici olarak islenir.</p>
+          </div>
+          <div class="lcard">
+            <div class="lcard-icon" style="background:var(--red-dim);color:var(--red);"><i class="fa-solid fa-arrow-up"></i></div>
+            <h4>DEM Satmak</h4>
+            <p>Kendi adresine DEM al, alici bul, fiyat belirle. Alici odemeyi yaptiktan sonra sen de ona DEM transferi atarsın. Her transferde 5 DEM gas kesılır.</p>
+          </div>
+          <div class="lcard">
+            <div class="lcard-icon gold"><i class="fa-solid fa-chart-line"></i></div>
+            <h4>Fiyat Nasil Belirlenir?</h4>
+            <p>DEM/USD fiyati agin islem hacmine gore dinamik degisir. Cok islem oldugunda yukselir, az islemde yatay kalir. Toplist'teki bakiyeler, agin buyuklugunu gosterir.</p>
+          </div>
+          <div class="lcard">
+            <div class="lcard-icon blue"><i class="fa-solid fa-shield-halved"></i></div>
+            <h4>Guvenli Islem</h4>
+            <p>Her transfer ECDSA imzayla dogrulanir. Sahte islem yapilamaz. Ancak karsi tarafla odeme konusunda dikkatli ol — blockchain transferleri geri alinamaz.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="ltab-content" id="lt-sozluk">
+        <div class="learn-hero">
+          <div class="lh-icon blue"><i class="fa-solid fa-book"></i></div>
+          <h3>Kripto Sozlugu</h3>
+          <p>Karsilastigin terimlerin Turkce aciklamalari burada.</p>
+        </div>
+        <div class="sozluk-grid">
+          <div class="sozluk-item"><div class="sz-term">Blockchain</div><div class="sz-desc">Blok zinciri. Her islemin kayitli oldugu, silinemeyen, herkesin gorebilecegi dijital defter.</div></div>
+          <div class="sozluk-item"><div class="sz-term">Wallet (Cuzdan)</div><div class="sz-desc">DEM adresin ve private key'in. Bankalardaki hesap numarası ve sifre gibi dusun.</div></div>
+          <div class="sozluk-item"><div class="sz-term">Private Key</div><div class="sz-desc">Gizli anahtar. Bunu bilen cuzdanini tamamen kontrol edebilir. Hicbir zaman kimseyle paylasma.</div></div>
+          <div class="sozluk-item"><div class="sz-term">Public Key / Adres</div><div class="sz-desc">Herkesle paylasilabilir adres. Sana DEM gondermek isteyen bunu kullanir.</div></div>
+          <div class="sozluk-item"><div class="sz-term">Gas Fee</div><div class="sz-desc">Islem ucreti. Her transfer/chat mesaji icin kucuk bir DEM odenir. Agin calismasi bu ucretlerle surduruluyor.</div></div>
+          <div class="sozluk-item"><div class="sz-term">Mining (Madencilik)</div><div class="sz-desc">Yeni DEM uretme islemi. DemCoin'de Proof of Stake ile calisir — stake et, blok uret, odül kazan.</div></div>
+          <div class="sozluk-item"><div class="sz-term">Stake</div><div class="sz-desc">Mining icin DEM kilitleme. Ne kadar fazla stake edersen o kadar cok blok uretirsin.</div></div>
+          <div class="sozluk-item"><div class="sz-term">Halving</div><div class="sz-desc">Yarılanma. Her 210.000 blokta blok odulu yariya duser. Arzı kisitlar, degerini korur.</div></div>
+          <div class="sozluk-item"><div class="sz-term">Block (Blok)</div><div class="sz-desc">Bir grup islemin bir araya getirilip onaylanmis hali. Her blok bir oncekine baglidir.</div></div>
+          <div class="sozluk-item"><div class="sz-term">Hash</div><div class="sz-desc">Her islem ve blogun benzersiz parmak izi. Icerik degisirse hash tamamen degisir.</div></div>
+          <div class="sozluk-item"><div class="sz-term">Merkle Root</div><div class="sz-desc">Bir bloktaki tum islemlerin ozetlenmis tek bir hash degeri. Blok butunlugunu kanitlar.</div></div>
+          <div class="sozluk-item"><div class="sz-term">Mempool</div><div class="sz-desc">Bekleyen islem havuzu. Onaylanmayi bekleyen transferler buraya girer, blok uretilince temizlenir.</div></div>
+          <div class="sozluk-item"><div class="sz-term">Proof of Stake (PoS)</div><div class="sz-desc">DemCoin'in kullandigi konsensus mekanizmasi. Elektrik yakmak yerine DEM stake ederek blok uretimine katilirsin.</div></div>
+          <div class="sozluk-item"><div class="sz-term">Validator</div><div class="sz-desc">Blok ureten katilimci. DemCoin'de stake yapan herkes potansiyel validator olabilir.</div></div>
+          <div class="sozluk-item"><div class="sz-term">ECDSA</div><div class="sz-desc">Eliptik egrili dijital imza algoritmasi. Her transfer senin ozel imzanla onaylanir, sahtecilik imkansizdir.</div></div>
+          <div class="sozluk-item"><div class="sz-term">Genesis Block</div><div class="sz-desc">Zincirin ilk bloku. DemCoin'de #0 numarali bloktur. Her seyin baslangic noktasi.</div></div>
+          <div class="sozluk-item"><div class="sz-term">DEM</div><div class="sz-desc">DemCoin'in sembolü. Maksimum arz 50.000.000 DEM'dir. Hicbir zaman bu sayiyi asmaz.</div></div>
+          <div class="sozluk-item"><div class="sz-term">Max Supply (Maks Arz)</div><div class="sz-desc">Hic uretilmeyecek toplam coin sayisi. DemCoin icin bu 50 milyon DEM'dir. Bitcoin'de 21 milyon BTC'dir.</div></div>
+          <div class="sozluk-item"><div class="sz-term">Block Explorer</div><div class="sz-desc">Blockchain uzerindeki islemleri ve bloklari gormek icin kullanilan arac. DemCoin'de Explorer sekmesi bu isevi gorur.</div></div>
+          <div class="sozluk-item"><div class="sz-term">On-Chain</div><div class="sz-desc">Dogrudan blockchain uzerinde gerceklesen islem veya veri. DemCoin'deki chat mesajlari on-chain'dir.</div></div>
+        </div>
+      </div>
+
+      <div class="ltab-content" id="lt-guvenlik">
+        <div class="learn-hero">
+          <div class="lh-icon" style="background:var(--red-dim);color:var(--red);"><i class="fa-solid fa-shield-halved"></i></div>
+          <h3>Guvenlik Rehberi</h3>
+          <p>DemCoin'i guvenle kullanmak icin bilmen gereken en onemli kurallar.</p>
+        </div>
+        <div class="learn-cards">
+          <div class="lcard" style="border-color:var(--red);">
+            <div class="lcard-icon" style="background:var(--red-dim);color:var(--red);"><i class="fa-solid fa-key"></i></div>
+            <h4>Private Key = Her Sey</h4>
+            <p>Private key'ini kimseyle paylasmá. Ekran goruntusunu alma, buluta yukleme, mesajla gonderme. Kaybolursa cuzdanina bir daha erisemezsin. Kagida yazıp guvenli yerde sakla.</p>
+          </div>
+          <div class="lcard">
+            <div class="lcard-icon" style="background:var(--gold-dim);color:var(--gold);"><i class="fa-solid fa-eye-slash"></i></div>
+            <h4>Anonim Kal</h4>
+            <p>Chat'te gercek adinı ve kimligini paylasma. Cüzdan adresin zaten anonim — @Dem_XXXX seklinde gorunur. Yüksek bakiyeni halka aciklama.</p>
+          </div>
+          <div class="lcard">
+            <div class="lcard-icon green"><i class="fa-solid fa-rotate-right"></i></div>
+            <h4>Transfer Geri Alinmaz</h4>
+            <p>Blockchain transferleri kesindir. Yanlış adrese gonderilen DEM geri alinamaz. Gonderim öncesinde adresi iki kez kontrol et. Kucuk bir test transferi yaparak basla.</p>
+          </div>
+          <div class="lcard">
+            <div class="lcard-icon blue"><i class="fa-solid fa-magnifying-glass"></i></div>
+            <h4>Islemleri Dogrula</h4>
+            <p>Explorer sekmesinden tüm transferleri görebilirsin. Birileri sana "DEM gonderdum" diyorsa Explorer'dan adresini kontrol et. Blockchain yalan söylemez.</p>
+          </div>
+          <div class="lcard" style="border-color:var(--red);">
+            <div class="lcard-icon" style="background:var(--red-dim);color:var(--red);"><i class="fa-solid fa-user-slash"></i></div>
+            <h4>Dolandiricilik</h4>
+            <p>Kimse senden private key istemez — ne admin, ne kurucu, ne destek ekibi. Boyle biri gorursen hemen engelle. "Seni secildi, DEM yollayacagiz" turundeki mesajlar scam'dir.</p>
+          </div>
+          <div class="lcard">
+            <div class="lcard-icon" style="background:var(--green-dim);color:var(--green);"><i class="fa-solid fa-lock"></i></div>
+            <h4>DemCoin Guvenlik Mimarisi</h4>
+            <p>Her transfer ECDSA P-256 imzayla dogrulanir. Race condition ve double spending PostgreSQL atomik transaction ile onlenir. %51 ve Sybil saldiriları validator sistemiyle bloke edilir.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
     <div class="page-header"><h2><i class="fa-solid fa-magnifying-glass"></i> Block Explorer</h2></div>
     <div style="max-width:900px;">
       <div style="display:flex;gap:8px;margin-bottom:14px;">

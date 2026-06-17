@@ -17,6 +17,7 @@ function switchPage(name,btn){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
   if(name==='toplist')loadToplist();
+  if(name==='learn'){}
   if(name==='mining')loadMiningData();
   if(name==='explorer')loadExplorer();
   if(name==='admin')loadAdminWallets();
@@ -588,4 +589,12 @@ async function explorerSearch(){
   } else {
     result.innerHTML='<div style="color:var(--text-muted);font-size:12px;">DEM adresi veya blok numarası girin</div>';
   }
+}
+
+function ltab(name, btn) {
+  document.querySelectorAll('.ltab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.ltab').forEach(b => b.classList.remove('active'));
+  const el = document.getElementById('lt-' + name);
+  if (el) el.classList.add('active');
+  if (btn) btn.classList.add('active');
 }
