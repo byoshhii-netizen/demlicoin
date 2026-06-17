@@ -404,6 +404,106 @@ func GetBlockCount() int64 {
 	return count
 }
 
+func GetTopList(limit int) ([]map[string]interface{}, error) {
+	rows, err := DB.Query(`
+		SELECT address, balance FROM wallets
+		WHERE blacklisted = FALSE AND address NOT LIKE 'DEM_BOT_%'
+		ORDER BY balance DESC LIMIT $1`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var list []map[string]interface{}
+	for rows.Next() {
+		var addr string
+		var bal float64
+		rows.Scan(&addr, &bal)
+		end := len(addr)
+		if end > 9 {
+			end = 9
+		}
+		list = append(list, map[string]interface{}{
+			"address":  addr,
+			"username": "@Dem_" + addr[3:end],
+			"balance":  bal,
+		})
+	}
+	return list, nil
+}
+
+func GetAllWalletsAdmin() ([]map[string]interface{}, error) {
+	rows, err := DB.Query(`
+		SELECT w.address, w.balance, w.blacklisted,
+		       COALESCE(r.username, ''), COALESCE(r.muted, FALSE), COALESCE(r.trade_ban, FALSE)
+		FROM wallets w
+		LEFT JOIN user_restrictions r ON w.address = r.address
+		ORDER BY w.balance DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var list []map[string]interface{}
+	for rows.Next() {
+		var addr, username string
+		var bal float64
+		var blacklisted, muted, tradeBan bool
+		rows.Scan(&addr, &bal, &blacklisted, &username, &muted, &tradeBan)
+		if username == "" {
+			if len(addr) >= 9 {
+				username = "@Dem_" + addr[3:9]
+			} else {
+				username = "@Dem_" + addr[3:]
+			}
+		}
+		list = append(list, map[string]interface{}{
+			"address":     addr,
+			"username":    username,
+			"balance":     bal,
+			"blacklisted": blacklisted,
+			"muted":       muted,
+			"trade_ban":   tradeBan,
+		})
+	}
+	return list, nil
+}
+
+func GetRecentTrades(limit int) ([]map[string]interface{}, error) {
+	rows, err := DB.Query(`
+		SELECT from_addr, to_addr, amount, gas_fee, tx_type, hash, timestamp
+		FROM transactions
+		ORDER BY timestamp DESC LIMIT $1`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var list []map[string]interface{}
+	for rows.Next() {
+		var from, to, txType, hash string
+		var amount, gasFee float64
+		var ts time.Time
+		rows.Scan(&from, &to, &amount, &gasFee, &txType, &hash, &ts)
+		fromEnd := len(from)
+		if fromEnd > 9 {
+			fromEnd = 9
+		}
+		toEnd := len(to)
+		if toEnd > 9 {
+			toEnd = 9
+		}
+		fromUser := "@Dem_" + from[3:fromEnd]
+		toUser := "@Dem_" + to[3:toEnd]
+		list = append(list, map[string]interface{}{
+			"from":   fromUser,
+			"to":     toUser,
+			"amount": amount,
+			"type":   txType,
+			"hash":   hash,
+			"time":   ts,
+		})
+	}
+	return list, nil
+}
+
 func init() {
 	_ = time.Now()
 }

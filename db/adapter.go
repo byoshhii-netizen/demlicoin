@@ -59,3 +59,13 @@ func (s *StoreAdapter) SavePricePoint(value float64) error { return SavePricePoi
 func (s *StoreAdapter) GetPriceHistory(limit int) ([]*blockchain.PricePoint, error) {
 	return GetPriceHistory(limit)
 }
+
+func (s *StoreAdapter) GetTopList(limit int) ([]map[string]interface{}, error) {
+	return GetTopList(limit)
+}
+func (s *StoreAdapter) GetAllWalletsAdmin() ([]map[string]interface{}, error) {
+	return GetAllWalletsAdmin()
+}
+func (s *StoreAdapter) GetRecentTrades(limit int) ([]map[string]interface{}, error) {
+	return GetRecentTrades(limit)
+}

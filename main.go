@@ -60,6 +60,9 @@ func main() {
 	})
 	priceEngine.Start()
 
+	botEngine := blockchain.NewBotEngine(chain, hub, priceEngine)
+	botEngine.Start()
+
 	fmt.Printf("Kurucu Adresi : %s\n", con.GetFounderAddress())
 	fmt.Printf("Bakiye        : %.0f DEM\n", chain.GetBalance(con.GetFounderAddress()))
 	fmt.Printf("Max Arz       : %.0f DEM\n", blockchain.MaxSupply)

@@ -172,3 +172,16 @@ func (pe *PriceEngine) SetPrice(price float64) {
 		pe.history = pe.history[len(pe.history)-pe.maxHist:]
 	}
 }
+
+func (pe *PriceEngine) ApplyImpact(delta float64) {
+	pe.mu.Lock()
+	defer pe.mu.Unlock()
+	pe.current += delta
+	if pe.current < pe.settings.MinDeger {
+		pe.current = pe.settings.MinDeger
+	}
+	if pe.current > pe.settings.MaxDeger {
+		pe.current = pe.settings.MaxDeger
+	}
+	pe.current = math.Round(pe.current*10000) / 10000
+}

@@ -37,6 +37,9 @@ type storeIface interface {
 	SetUserRestriction(addr, username string, muted, tradeBan bool) error
 	GetAllRestrictions() ([]*blockchain.UserRestriction, error)
 	GetPriceHistory(limit int) ([]*blockchain.PricePoint, error)
+	GetTopList(limit int) ([]map[string]interface{}, error)
+	GetAllWalletsAdmin() ([]map[string]interface{}, error)
+	GetRecentTrades(limit int) ([]map[string]interface{}, error)
 }
 
 func NewServer(chain *blockchain.Chain, hub *p2p.Hub, con *console.Console, store storeIface) *Server {
@@ -74,6 +77,9 @@ func (s *Server) setupRoutes() {
 	s.router.HandleFunc("/api/admin/validator-ekle", s.handleValidatorEkle).Methods("POST")
 	s.router.HandleFunc("/api/admin/token-bas", s.handleTokenBas).Methods("POST")
 	s.router.HandleFunc("/api/admin/imza-olustur", s.handleImzaOlustur).Methods("POST")
+	s.router.HandleFunc("/api/toplist", s.handleTopList).Methods("GET")
+	s.router.HandleFunc("/api/admin/wallets", s.handleAdminWallets).Methods("GET")
+	s.router.HandleFunc("/api/trades/recent", s.handleRecentTrades).Methods("GET")
 	s.router.PathPrefix("/").Handler(http.FileServer(http.Dir("./public")))
 }
 
@@ -187,6 +193,10 @@ func (s *Server) handleTransfer(w http.ResponseWriter, r *http.Request) {
 	block := s.chain.AddBlock(s.console.GetFounderAddress(), txs)
 	if block != nil {
 		s.hub.BroadcastBlock(block)
+		if s.priceEngine != nil && req.Amount > 0 {
+			impact := req.Amount * 0.00005
+			s.priceEngine.ApplyImpact(impact)
+		}
 	}
 
 	jsonOK(w, map[string]interface{}{
@@ -434,6 +444,38 @@ func (s *Server) handleImzaOlustur(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonOK(w, map[string]string{"imza": imza})
+}
+
+func (s *Server) handleTopList(w http.ResponseWriter, r *http.Request) {
+	list, err := s.store.GetTopList(50)
+	if err != nil {
+		jsonErr(w, err.Error(), 500)
+		return
+	}
+	jsonOK(w, list)
+}
+
+func (s *Server) handleAdminWallets(w http.ResponseWriter, r *http.Request) {
+	imza := r.URL.Query().Get("imza")
+	if !s.console.DogrulaKurucu(imza, "AdminWallets") {
+		jsonErr(w, "YETKİSİZ", 403)
+		return
+	}
+	list, err := s.store.GetAllWalletsAdmin()
+	if err != nil {
+		jsonErr(w, err.Error(), 500)
+		return
+	}
+	jsonOK(w, list)
+}
+
+func (s *Server) handleRecentTrades(w http.ResponseWriter, r *http.Request) {
+	list, err := s.store.GetRecentTrades(30)
+	if err != nil {
+		jsonErr(w, err.Error(), 500)
+		return
+	}
+	jsonOK(w, list)
 }
 
 func jsonOK(w http.ResponseWriter, data interface{}) {
