@@ -1,7 +1,6 @@
 package blockchain
 
 import (
-	"fmt"
 	"math/rand"
 	"sync"
 	"time"
